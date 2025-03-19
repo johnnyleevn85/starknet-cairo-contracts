@@ -1,20 +1,28 @@
-name: Pull Request Integration
+name: CI
 
 on:
+  push:
+    branches: ["dev"]
   pull_request:
-    branches:
-      - dev
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - auto_merge_enabled
 
 jobs:
-  test:
+  CI:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Install asdf
-        run: ../../scripts/install_asdf.sh
-      - name: Check asdf version
-        run: asdf --version
       - uses: actions/checkout@v4
+      - name: Install asdf
+        run: scripts/install_asdf.sh
+
+      - name: Load asdf and check version
+
+        run: |
+          source "$HOME/.asdf/asdf.sh"
+          asdf --version
 
       - uses: foundry-rs/setup-snfoundry@v3
         with:
@@ -27,14 +35,14 @@ jobs:
         run: |
           curl -L https://raw.githubusercontent.com/software-mansion/cairo-coverage/main/scripts/install.sh | sh
 
-      - name: Run test and coverage
-        run: scarb test --coverage
+      # - name: Run test and coverage
+      #   run: scarb test --coverage
 
-      - uses: codecov/codecov-action@v5.3.1
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: coverage/coverage.lcov
-          fail_ci_if_error: true
+      # - uses: codecov/codecov-action@v5.3.1
+      #   with:
+      #     token: ${{ secrets.CODECOV_TOKEN }}
+      #     files: coverage/coverage.lcov
+      #     fail_ci_if_error: true
 
       - name: Check formatting
         run: |

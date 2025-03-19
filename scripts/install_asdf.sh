@@ -1,8 +1,7 @@
 #!/bin/bash
+pushd $(dirname $0)/..
 
 set -e  # Exit immediately if a command fails
-set -o pipefail  # Catch piped command errors
-set -u  # Treat unset variables as an error
 
 # Define the ASDF installation directory (Default: $HOME/.asdf)
 ASDF_DIR="$HOME/.asdf"
@@ -15,12 +14,8 @@ else
     echo "asdf is already installed at $ASDF_DIR"
 fi
 
-# Ensure asdf is sourced in the current shell
-echo "Configuring asdf..."
-echo ". $ASDF_DIR/asdf.sh" >> ~/.bashrc
-echo ". $ASDF_DIR/completions/asdf.bash" >> ~/.bashrc
-
-# Apply changes immediately for CI
+export PATH="$ASDF_DIR/bin:$PATH"
+export ASDF_DIR="$ASDF_DIR"
 source "$ASDF_DIR/asdf.sh"
 source "$ASDF_DIR/completions/asdf.bash"
 
@@ -31,3 +26,5 @@ else
     echo "asdf installation failed!" >&2
     exit 1
 fi
+
+popd
