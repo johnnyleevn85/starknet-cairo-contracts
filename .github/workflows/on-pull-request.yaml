@@ -47,3 +47,13 @@ jobs:
       - name: Check formatting
         run: |
           scarb fmt --check
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - run: pip install -r requirements.txt
+
+      - name: Run python Tests...
+        run: scripts/python_tests.sh
