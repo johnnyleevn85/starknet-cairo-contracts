@@ -29,8 +29,6 @@ snforge_std = "0.38.3"
 openzeppelin = "1.0.0"
 openzeppelin_testing = "2.0.0"
 
-
-
 [workspace.tool.fmt]
 sort-module-level-items = true
 
@@ -45,9 +43,11 @@ scarb.workspace = true
 [dependencies]
 starknet.workspace = true
 openzeppelin.workspace = true
+lbtc_token = {path = "packages/token"}
 
 [dev-dependencies]
 assert_macros.workspace = true
+snforge_std.workspace = true
 openzeppelin_testing.workspace = true
 
 

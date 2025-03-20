@@ -2,6 +2,15 @@
 version = 1
 
 [[package]]
+name = "lbtc_token"
+version = "0.0.1"
+dependencies = [
+ "openzeppelin",
+ "openzeppelin_testing",
+ "snforge_std",
+]
+
+[[package]]
 name = "openzeppelin"
 version = "1.0.0"
 source = "registry+https://scarbs.xyz/"
@@ -133,8 +142,10 @@ checksum = "sha256:fd348b31c4a4407add33adc3c2b8f26dca71dbd7431faaf726168f37a91db
 name = "sn_lbtc"
 version = "0.0.1"
 dependencies = [
+ "lbtc_token",
  "openzeppelin",
  "openzeppelin_testing",
+ "snforge_std",
 ]
 
 [[package]]
@@ -150,12 +161,4 @@ source = "registry+https://scarbs.xyz/"
 checksum = "sha256:d376526fbbe22535ad89ed630b11d6e209f22c50168de6c6430c0591c81c3174"
 dependencies = [
  "snforge_scarb_plugin",
-]
-
-[[package]]
-name = "token"
-version = "0.0.1"
-dependencies = [
- "openzeppelin_testing",
- "snforge_std",
 ]
