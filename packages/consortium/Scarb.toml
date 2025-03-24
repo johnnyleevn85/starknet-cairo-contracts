@@ -16,8 +16,9 @@ fmt.workspace = true
 scarb.workspace = true
 
 [dependencies]
-starknet.workspace = true
 openzeppelin.workspace = true
+starknet.workspace = true
+starkware_utils.workspace = true
 
 [dev-dependencies]
 assert_macros.workspace = true

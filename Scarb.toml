@@ -26,10 +26,11 @@ keywords = [
 
 [workspace.dependencies]
 assert_macros = "2.11.2"
-starknet = "2.11.2"
-snforge_std = "0.38.3"
 openzeppelin = "1.0.0"
 openzeppelin_testing = "2.0.0"
+snforge_std = "0.38.3"
+starknet = "2.11.2"
+starkware_utils = { git = "https://github.com/starkware-libs/starkware-starknet-utils", rev = "334bbee1be1dcd331a0e66162abee36dc42d18d1" }
 
 [workspace.tool.fmt]
 sort-module-level-items = true
@@ -43,11 +44,12 @@ scarb.workspace = true
 
 
 [dependencies]
-starknet.workspace = true
-openzeppelin.workspace = true
 lbtc_token = {path = "packages/token"}
 lbtc_bascule = {path = "packages/bascule"}
 lbtc_consortium = {path = "packages/consortium"}
+openzeppelin.workspace = true
+starknet.workspace = true
+starkware_utils.workspace = true
 
 [dev-dependencies]
 assert_macros.workspace = true
