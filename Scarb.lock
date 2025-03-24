@@ -2,6 +2,15 @@
 version = 1
 
 [[package]]
+name = "lbtc_bascule"
+version = "0.0.1"
+dependencies = [
+ "openzeppelin",
+ "openzeppelin_testing",
+ "snforge_std",
+]
+
+[[package]]
 name = "lbtc_token"
 version = "0.0.1"
 dependencies = [
@@ -142,6 +151,7 @@ checksum = "sha256:fd348b31c4a4407add33adc3c2b8f26dca71dbd7431faaf726168f37a91db
 name = "sn_lbtc"
 version = "0.0.1"
 dependencies = [
+ "lbtc_bascule",
  "lbtc_token",
  "openzeppelin",
  "openzeppelin_testing",

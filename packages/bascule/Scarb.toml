@@ -1,0 +1,42 @@
+[package]
+name = "lbtc_bascule"
+readme = "README.md"
+keywords = [
+   "wip"
+]
+version.workspace = true
+edition.workspace = true
+description.workspace = true
+documentation.workspace = true
+repository.workspace = true
+license-file.workspace = true
+
+[tool]
+fmt.workspace = true
+scarb.workspace = true
+
+[dependencies]
+starknet.workspace = true
+openzeppelin.workspace = true
+
+[dev-dependencies]
+assert_macros.workspace = true
+snforge_std.workspace = true
+openzeppelin_testing.workspace = true
+
+[[test]]
+name = "lbtc_bascule_unittest"
+
+[scripts]
+test = "SNFORGE_BACKTRACE=1 snforge test"
+
+[lib]
+
+[[target.starknet-contract]]
+sierra = true
+casm = false
+
+[profile.dev.cairo]
+unstable-add-statements-functions-debug-info = true
+unstable-add-statements-code-locations-debug-info = true
+inlining-strategy = "avoid"

@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "packages/token",
+    "packages/bascule",
 ]
 
 
@@ -44,6 +45,7 @@ scarb.workspace = true
 starknet.workspace = true
 openzeppelin.workspace = true
 lbtc_token = {path = "packages/token"}
+lbtc_bascule = {path = "packages/bascule"}
 
 [dev-dependencies]
 assert_macros.workspace = true

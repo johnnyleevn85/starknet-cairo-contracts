@@ -1,1 +1,1 @@
-pub use lbtc_token as token;
+pub use {lbtc_bascule as bascule, lbtc_token as token};
