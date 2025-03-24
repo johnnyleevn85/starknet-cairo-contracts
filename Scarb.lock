@@ -11,6 +11,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "lbtc_consortium"
+version = "0.0.1"
+dependencies = [
+ "openzeppelin",
+ "openzeppelin_testing",
+ "snforge_std",
+]
+
+[[package]]
 name = "lbtc_token"
 version = "0.0.1"
 dependencies = [
@@ -152,6 +161,7 @@ name = "sn_lbtc"
 version = "0.0.1"
 dependencies = [
  "lbtc_bascule",
+ "lbtc_consortium",
  "lbtc_token",
  "openzeppelin",
  "openzeppelin_testing",
