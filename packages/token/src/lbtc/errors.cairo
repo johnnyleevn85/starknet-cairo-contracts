@@ -1,0 +1,1 @@
+pub const INVALID_MINTER: felt252 = 'INVALID_MINTER';

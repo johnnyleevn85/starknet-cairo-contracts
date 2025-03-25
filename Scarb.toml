@@ -25,12 +25,13 @@ keywords = [
 ]
 
 [workspace.dependencies]
+starknet = "2.11.2"
+snforge_std = "0.38.3"
 assert_macros = "2.11.2"
 openzeppelin = "1.0.0"
 openzeppelin_testing = "2.0.0"
-snforge_std = "0.38.3"
-starknet = "2.11.2"
 starkware_utils = { git = "https://github.com/starkware-libs/starkware-starknet-utils", rev = "334bbee1be1dcd331a0e66162abee36dc42d18d1" }
+starkware_utils_testing = { git = "https://github.com/starkware-libs/starkware-starknet-utils", rev = "334bbee1be1dcd331a0e66162abee36dc42d18d1" }
 
 [workspace.tool.fmt]
 sort-module-level-items = true
