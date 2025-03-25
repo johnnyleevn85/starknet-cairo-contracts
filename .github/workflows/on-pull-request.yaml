@@ -45,7 +45,7 @@ jobs:
 
       - name: Check formatting
         run: |
-          scarb fmt --check
+          scarb fmt -w --check
 
       - uses: actions/setup-python@v4
         with:

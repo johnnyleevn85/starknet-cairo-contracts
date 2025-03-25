@@ -1,13 +1,13 @@
 #[starknet::contract]
 pub mod consortium {
-    use starknet::ContractAddress;
     use openzeppelin::access::accesscontrol::AccessControlComponent;
     use openzeppelin::introspection::src5::SRC5Component;
+    use starknet::ContractAddress;
     use starkware_utils::components::pausable::PausableComponent;
-    use starkware_utils::components::roles::RolesComponent;
-    use starkware_utils::components::roles::RolesComponent::InternalTrait as RolesInternal;
     use starkware_utils::components::replaceability::ReplaceabilityComponent;
     use starkware_utils::components::replaceability::ReplaceabilityComponent::InternalReplaceabilityTrait;
+    use starkware_utils::components::roles::RolesComponent;
+    use starkware_utils::components::roles::RolesComponent::InternalTrait as RolesInternal;
 
 
     component!(path: AccessControlComponent, storage: accesscontrol, event: AccessControlEvent);
@@ -57,9 +57,7 @@ pub mod consortium {
 
     #[constructor]
     pub fn constructor(
-        ref self: ContractState,
-        governance_admin: ContractAddress,
-        upgrade_delay: u64,
+        ref self: ContractState, governance_admin: ContractAddress, upgrade_delay: u64,
     ) {
         self.roles.initialize(:governance_admin);
         self.replaceability.initialize(:upgrade_delay);
