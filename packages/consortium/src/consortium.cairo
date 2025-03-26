@@ -10,7 +10,7 @@ pub mod consortium {
     use starkware_utils::components::replaceability::ReplaceabilityComponent::InternalReplaceabilityTrait;
     use starkware_utils::components::roles::RolesComponent;
     use starkware_utils::components::roles::RolesComponent::InternalTrait as RolesInternal;
-    use starkware_utils::types::Signature;
+    use starkware_utils::types::{PublicKey, Signature};
 
     component!(path: AccessControlComponent, storage: accesscontrol, event: AccessControlEvent);
     component!(path: PausableComponent, storage: pausable, event: PausableEvent);
@@ -30,7 +30,7 @@ pub mod consortium {
 
     #[starknet::storage_node]
     pub struct ValidatorSet {
-        pub validator_pks: Vec<felt252>,
+        pub validator_pks: Vec<PublicKey>,
         pub weights: Vec<u128>,
         pub weight_threshold: u128,
     }
@@ -78,30 +78,30 @@ pub mod consortium {
     pub impl ConsortiumImpl of IConsortium<ContractState> {
         fn set_initial_validator_set(
             ref self: ContractState,
-            validator_pks: Array<felt252>,
+            validator_pks: Array<PublicKey>,
             weights: Array<u128>,
             weight_threshold: u128,
         ) {}
 
         fn set_next_validator_set(
             ref self: ContractState,
-            validator_pks: Array<felt252>,
+            validator_pks: Array<PublicKey>,
             weights: Array<u128>,
             weight_threshold: u128,
             proof: Array<Signature>,
-            signer_pks: Array<felt252>,
+            signer_pks: Array<PublicKey>,
         ) {}
 
         fn check_proof(
             self: @ContractState,
             payload_hash: felt252,
             proof: Array<Signature>,
-            signer_pks: Array<felt252>,
+            signer_pks: Array<PublicKey>,
         ) {}
 
         fn get_validator_set(
             self: @ContractState, epoch: u64,
-        ) -> (Array<felt252>, Array<u128>, u128) {
+        ) -> (Array<PublicKey>, Array<u128>, u128) {
             Default::default()
         }
 
