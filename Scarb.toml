@@ -6,13 +6,6 @@ members = [
 ]
 
 
-[package]
-name = "sn_lbtc"
-readme = "README.md"
-version.workspace = true
-keywords.workspace = true
-edition.workspace = true
-
 [workspace.package]
 version = "0.0.1"
 edition = "2024_07"
@@ -38,25 +31,6 @@ sort-module-level-items = true
 
 [workspace.tool.scarb]
 allow-prebuilt-plugins = ["snforge_std"]
-
-[tool]
-fmt.workspace = true
-scarb.workspace = true
-
-
-[dependencies]
-lbtc_token = {path = "packages/token"}
-lbtc_bascule = {path = "packages/bascule"}
-lbtc_consortium = {path = "packages/consortium"}
-openzeppelin.workspace = true
-starknet.workspace = true
-starkware_utils.workspace = true
-
-[dev-dependencies]
-assert_macros.workspace = true
-snforge_std.workspace = true
-openzeppelin_testing.workspace = true
-
 
 [scripts]
 test = "SNFORGE_BACKTRACE=1 snforge test"

@@ -161,19 +161,6 @@ source = "registry+https://scarbs.xyz/"
 checksum = "sha256:fd348b31c4a4407add33adc3c2b8f26dca71dbd7431faaf726168f37a91db0c1"
 
 [[package]]
-name = "sn_lbtc"
-version = "0.0.1"
-dependencies = [
- "lbtc_bascule",
- "lbtc_consortium",
- "lbtc_token",
- "openzeppelin",
- "openzeppelin_testing",
- "snforge_std",
- "starkware_utils",
-]
-
-[[package]]
 name = "snforge_scarb_plugin"
 version = "0.38.3"
 source = "registry+https://scarbs.xyz/"
