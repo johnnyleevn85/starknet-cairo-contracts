@@ -21,6 +21,8 @@ from starknet_py.net.signer.stark_curve_signer import StarkCurveSigner
 from starknet_py.contract import Contract
 from starknet_py.net.client_models import ResourceBounds, ResourceBoundsMapping
 
+logger = logging.getLogger(__name__)
+
 SIERRA_PROGRAM_KEY = "sierra_program"
 ABI_KEY = "abi"
 
@@ -174,7 +176,7 @@ class Starknet:
         self.port = 5050
         self.seed = 500
         self.starknet_proc = subprocess.Popen(
-            f"starknet-devnet --port {self.port} -- seed {self.seed}",
+            f"starknet-devnet --port {self.port} --seed {self.seed}",
             shell=True,
             stdout=subprocess.DEVNULL,
             stderr=self.err_stream,

@@ -35,7 +35,7 @@ test = "SNFORGE_BACKTRACE=1 snforge test"
 
 [[target.starknet-contract]]
 sierra = true
-casm = false
+casm = true
 
 [profile.dev.cairo]
 unstable-add-statements-functions-debug-info = true
