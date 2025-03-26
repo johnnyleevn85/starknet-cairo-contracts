@@ -19,13 +19,13 @@ pub struct DepositsReported {
 #[derive(Debug, Drop, PartialEq, starknet::Event)]
 pub struct DepositAlreadyReported {
     #[key]
-    pub deposit_iD: felt252,
+    pub deposit_id: felt252,
 }
 
 #[derive(Debug, Drop, PartialEq, starknet::Event)]
 pub struct WithdrawalNotValidated {
     #[key]
-    pub deposit_iD: felt252,
+    pub deposit_id: felt252,
     pub withdrawal_amount: u128,
 }
 
@@ -33,6 +33,6 @@ pub struct WithdrawalNotValidated {
 #[derive(Debug, Drop, PartialEq, starknet::Event)]
 pub struct WithdrawalValidated {
     #[key]
-    pub deposit_iD: felt252,
+    pub deposit_id: felt252,
     pub withdrawal_amount: u128,
 }
