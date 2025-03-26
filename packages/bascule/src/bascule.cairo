@@ -1,9 +1,11 @@
 #[starknet::contract]
 pub mod bascule {
     use lbtc_bascule::events;
+    use lbtc_bascule::types::DepositState;
     use openzeppelin::access::accesscontrol::AccessControlComponent;
     use openzeppelin::introspection::src5::SRC5Component;
     use starknet::ContractAddress;
+    use starknet::storage::{Map, StoragePointerWriteAccess};
     use starkware_utils::components::pausable::PausableComponent;
     use starkware_utils::components::roles::RolesComponent;
     use starkware_utils::components::roles::RolesComponent::InternalTrait as RolesInternal;
@@ -30,6 +32,9 @@ pub mod bascule {
         pub roles: RolesComponent::Storage,
         #[substorage(v0)]
         src5: SRC5Component::Storage,
+        max_deposits: u16,
+        validate_threshold: u128,
+        depositHistory: Map<felt252, DepositState>,
     }
 
     #[event]
@@ -52,8 +57,11 @@ pub mod bascule {
     }
 
     #[constructor]
-    pub fn constructor(ref self: ContractState, governance_admin: ContractAddress) {
+    pub fn constructor(
+        ref self: ContractState, governance_admin: ContractAddress, max_deposits: u16,
+    ) {
         self.roles.initialize(:governance_admin);
+        self.max_deposits.write(max_deposits);
     }
     use lbtc_bascule::interface::IBascule;
 
