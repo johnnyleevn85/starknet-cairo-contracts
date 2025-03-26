@@ -1,11 +1,13 @@
 #[starknet::contract]
 pub mod bascule {
+    use lbtc_bascule::events;
     use openzeppelin::access::accesscontrol::AccessControlComponent;
     use openzeppelin::introspection::src5::SRC5Component;
     use starknet::ContractAddress;
     use starkware_utils::components::pausable::PausableComponent;
     use starkware_utils::components::roles::RolesComponent;
     use starkware_utils::components::roles::RolesComponent::InternalTrait as RolesInternal;
+
 
     component!(path: AccessControlComponent, storage: accesscontrol, event: AccessControlEvent);
     component!(path: PausableComponent, storage: pausable, event: PausableEvent);
@@ -41,6 +43,12 @@ pub mod bascule {
         RolesEvent: RolesComponent::Event,
         #[flat]
         SRC5Event: SRC5Component::Event,
+        DepositAlreadyReported: events::DepositAlreadyReported,
+        DepositsReported: events::DepositsReported,
+        MaxDepositsUpdated: events::MaxDepositsUpdated,
+        UpdateValidateThreshold: events::UpdateValidateThreshold,
+        WithdrawalNotValidated: events::WithdrawalNotValidated,
+        WithdrawalValidated: events::WithdrawalValidated,
     }
 
     #[constructor]
