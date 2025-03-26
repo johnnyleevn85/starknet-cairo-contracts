@@ -1,4 +1,5 @@
 pub mod bascule;
+pub mod errors;
 pub mod events;
 pub mod interface;
 
