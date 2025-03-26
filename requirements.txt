@@ -1,2 +1,3 @@
 black==23.1a1
 pytest==7.4.4
+starknet-py==0.25.0

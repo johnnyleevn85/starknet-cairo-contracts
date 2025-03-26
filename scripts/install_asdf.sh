@@ -14,17 +14,10 @@ else
     echo "asdf is already installed at $ASDF_DIR"
 fi
 
-export PATH="$ASDF_DIR/bin:$PATH"
-export ASDF_DIR="$ASDF_DIR"
-source "$ASDF_DIR/asdf.sh"
-source "$ASDF_DIR/completions/asdf.bash"
+# Make asdf available in future GitHub Actions steps
+echo "$HOME/.asdf/bin" >> "$GITHUB_PATH"
+echo "$HOME/.asdf/shims" >> "$GITHUB_PATH"
+echo "ASDF_DIR=$HOME/.asdf" >> "$GITHUB_ENV"
 
-# Verify asdf is available
-if command -v asdf >/dev/null; then
-    echo "asdf successfully installed and available!"
-else
-    echo "asdf installation failed!" >&2
-    exit 1
-fi
 
 popd
