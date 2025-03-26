@@ -4,12 +4,13 @@ pub mod consortium {
     use openzeppelin::access::accesscontrol::AccessControlComponent;
     use openzeppelin::introspection::src5::SRC5Component;
     use starknet::ContractAddress;
-    use starknet::storage::{Map, StoragePointerReadAccess, Vec};
+    use starknet::storage::{Map, StoragePointerReadAccess};
     use starkware_utils::components::pausable::PausableComponent;
     use starkware_utils::components::replaceability::ReplaceabilityComponent;
     use starkware_utils::components::replaceability::ReplaceabilityComponent::InternalReplaceabilityTrait;
     use starkware_utils::components::roles::RolesComponent;
     use starkware_utils::components::roles::RolesComponent::InternalTrait as RolesInternal;
+    use starkware_utils::iterable_map::IterableMap;
     use starkware_utils::types::{PublicKey, Signature};
 
     component!(path: AccessControlComponent, storage: accesscontrol, event: AccessControlEvent);
@@ -30,8 +31,8 @@ pub mod consortium {
 
     #[starknet::storage_node]
     pub struct ValidatorSet {
-        pub validator_pks: Vec<PublicKey>,
-        pub weights: Vec<u128>,
+        // The public keys of the validators and their corresponding weights.
+        pub validators: IterableMap<PublicKey, u128>,
         pub weight_threshold: u128,
     }
 
