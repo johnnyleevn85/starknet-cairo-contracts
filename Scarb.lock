@@ -8,6 +8,7 @@ dependencies = [
  "openzeppelin",
  "openzeppelin_testing",
  "snforge_std",
+ "starkware_utils",
 ]
 
 [[package]]
