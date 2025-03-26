@@ -55,5 +55,13 @@ pub mod bascule {
     pub fn constructor(ref self: ContractState, governance_admin: ContractAddress) {
         self.roles.initialize(:governance_admin);
     }
+    use lbtc_bascule::interface::IBascule;
+
+    #[abi(embed_v0)]
+    pub impl BasculeImpl of IBascule<ContractState> {
+        fn validate_withdrawal(
+            ref self: ContractState, deposit_id: felt252, withdrawal_amount: u128,
+        ) {}
+    }
 }
 
