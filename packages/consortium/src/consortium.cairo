@@ -1,5 +1,6 @@
 #[starknet::contract]
 pub mod consortium {
+    use lbtc_consortium::events::ValidatorSetUpdated;
     use lbtc_consortium::interface::IConsortium;
     use openzeppelin::access::accesscontrol::AccessControlComponent;
     use openzeppelin::introspection::src5::SRC5Component;
@@ -65,6 +66,7 @@ pub mod consortium {
         RolesEvent: RolesComponent::Event,
         #[flat]
         SRC5Event: SRC5Component::Event,
+        ValidatorSetUpdated: ValidatorSetUpdated,
     }
 
     #[constructor]
