@@ -7,7 +7,7 @@ members = [
 
 
 [workspace.package]
-version = "0.0.1"
+version = "0.1.0"
 edition = "2024_07"
 description = "WIP"
 documentation = "WIP"
@@ -35,7 +35,6 @@ allow-prebuilt-plugins = ["snforge_std"]
 [scripts]
 test = "SNFORGE_BACKTRACE=1 snforge test"
 
-[lib]
 [[target.starknet-contract]]
 
 [[test]]

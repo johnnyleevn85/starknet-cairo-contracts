@@ -3,7 +3,17 @@ version = 1
 
 [[package]]
 name = "lbtc_bascule"
-version = "0.0.1"
+version = "0.1.0"
+dependencies = [
+ "openzeppelin",
+ "openzeppelin_testing",
+ "snforge_std",
+ "starkware_utils",
+]
+
+[[package]]
+name = "lbtc_bridge"
+version = "0.1.0"
 dependencies = [
  "openzeppelin",
  "openzeppelin_testing",
@@ -13,7 +23,7 @@ dependencies = [
 
 [[package]]
 name = "lbtc_consortium"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "openzeppelin",
  "openzeppelin_testing",
@@ -23,7 +33,7 @@ dependencies = [
 
 [[package]]
 name = "lbtc_token"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "openzeppelin",
  "openzeppelin_testing",

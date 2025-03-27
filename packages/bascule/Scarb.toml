@@ -31,8 +31,6 @@ name = "lbtc_bascule_unittest"
 [scripts]
 test = "SNFORGE_BACKTRACE=1 snforge test"
 
-[lib]
-
 [[target.starknet-contract]]
 sierra = true
 casm = true
