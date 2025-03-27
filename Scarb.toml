@@ -3,6 +3,7 @@ members = [
     "packages/token",
     "packages/bascule",
     "packages/consortium",
+    "packages/bridge",
 ]
 
 
