@@ -41,7 +41,7 @@ jobs:
       - uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: packages/token/coverage/coverage.lcov
+          files: packages/token/coverage/coverage.lcov,packages/bridge/coverage/coverage.lcov,packages/consortium/coverage/coverage.lcov,packages/bascule/coverage/coverage.lcov
           fail_ci_if_error: true
 
       - name: Check formatting
