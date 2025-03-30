@@ -1,14 +1,17 @@
 #[starknet::contract]
 pub mod bascule {
-    use lbtc_bascule::events;
     use lbtc_bascule::types::DepositState;
+    use lbtc_bascule::{errors, events};
     use openzeppelin::access::accesscontrol::AccessControlComponent;
     use openzeppelin::introspection::src5::SRC5Component;
     use starknet::ContractAddress;
+    use starknet::event::EventEmitter;
     use starknet::storage::{Map, StoragePointerReadAccess, StoragePointerWriteAccess};
     use starkware_utils::components::pausable::PausableComponent;
+    use starkware_utils::components::pausable::PausableComponent::InternalTrait as PausableInternal;
     use starkware_utils::components::roles::RolesComponent;
     use starkware_utils::components::roles::RolesComponent::InternalTrait as RolesInternal;
+    use starkware_utils::components::roles::interface::SECURITY_AGENT;
 
 
     component!(path: AccessControlComponent, storage: accesscontrol, event: AccessControlEvent);
@@ -71,6 +74,30 @@ pub mod bascule {
         fn validate_withdrawal(
             ref self: ContractState, deposit_id: felt252, withdrawal_amount: u128,
         ) {}
+        /// Updates the threshold for checking validation withdrawals.
+        /// Only app governors can call this function.
+        ///
+        /// Lowering the threshold means we validate more deposits;
+        /// Increasing the threshold means we validate fewer
+        /// deposits;
+        ///
+        /// # Emits
+        /// * `UpdateValidateThreshold` with the old and new thresholds.
+        fn update_validation_threshold(ref self: ContractState, new_threshold: u128) {
+            self.pausable.assert_not_paused();
+            self.roles.only_app_governor();
+
+            let old_threshold = self.get_validate_threshold();
+            assert(old_threshold != new_threshold, errors::SAME_VALIDATION_THRESHOLD);
+
+            self.validate_threshold.write(new_threshold);
+            self
+                .emit(
+                    events::UpdateValidateThreshold {
+                        old_threshold: old_threshold, new_threshold: new_threshold,
+                    },
+                );
+        }
         /// View functions
 
         ///  Returns the minimum threshold for validating withdrawals.
