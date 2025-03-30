@@ -13,7 +13,7 @@ pub struct MaxDepositsUpdated {
 pub struct DepositsReported {
     #[key]
     pub report_id: felt252,
-    pub num_deposits: u128,
+    pub num_deposits: u32,
 }
 
 #[derive(Debug, Drop, PartialEq, starknet::Event)]

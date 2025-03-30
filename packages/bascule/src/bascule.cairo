@@ -5,7 +5,7 @@ pub mod bascule {
     use openzeppelin::access::accesscontrol::AccessControlComponent;
     use openzeppelin::introspection::src5::SRC5Component;
     use starknet::ContractAddress;
-    use starknet::storage::{Map, StoragePointerWriteAccess};
+    use starknet::storage::{Map, StoragePointerReadAccess, StoragePointerWriteAccess};
     use starkware_utils::components::pausable::PausableComponent;
     use starkware_utils::components::roles::RolesComponent;
     use starkware_utils::components::roles::RolesComponent::InternalTrait as RolesInternal;
@@ -32,7 +32,8 @@ pub mod bascule {
         pub roles: RolesComponent::Storage,
         #[substorage(v0)]
         src5: SRC5Component::Storage,
-        max_deposits: u16,
+        /// Maximum number of batch deposits it's possible to make at once
+        max_deposits: u32,
         validate_threshold: u128,
         depositHistory: Map<felt252, DepositState>,
     }
@@ -58,7 +59,7 @@ pub mod bascule {
 
     #[constructor]
     pub fn constructor(
-        ref self: ContractState, governance_admin: ContractAddress, max_deposits: u16,
+        ref self: ContractState, governance_admin: ContractAddress, max_deposits: u32,
     ) {
         self.roles.initialize(:governance_admin);
         self.max_deposits.write(max_deposits);
@@ -70,6 +71,16 @@ pub mod bascule {
         fn validate_withdrawal(
             ref self: ContractState, deposit_id: felt252, withdrawal_amount: u128,
         ) {}
+        /// View functions
+
+        ///  Returns the minimum threshold for validating withdrawals.
+        fn get_validate_threshold(self: @ContractState) -> u128 {
+            self.validate_threshold.read()
+        }
+        /// Get maximum number of deposits that can be reported at once.
+        fn get_max_deposits(self: @ContractState) -> u32 {
+            self.max_deposits.read()
+        }
     }
 }
 
