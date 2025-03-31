@@ -44,6 +44,7 @@ pub mod bridge {
         replaceability: ReplaceabilityComponent::Storage,
         // --- Bridge ---
         consortium: ContractAddress,
+        treasury: ContractAddress,
     }
 
     #[event]
@@ -60,6 +61,7 @@ pub mod bridge {
         #[flat]
         ReplaceabilityEvent: ReplaceabilityComponent::Event,
         ConsortiumChanged: events::ConsortiumChanged,
+        TreasuryChanged: events::TreasuryChanged,
     }
 
     #[constructor]
@@ -79,6 +81,13 @@ pub mod bridge {
         fn get_consortium(self: @ContractState) -> ContractAddress {
             self.consortium.read()
         }
+        fn change_treasury(ref self: ContractState, new_treasury: ContractAddress) {
+            self._change_treasury(:new_treasury);
+        }
+
+        fn get_treasury(self: @ContractState) -> ContractAddress {
+            self.treasury.read()
+        }
     }
 
 
@@ -90,6 +99,14 @@ pub mod bridge {
             let old_consortium = self.consortium.read();
             self.consortium.write(new_consortium);
             self.emit(events::ConsortiumChanged { old_consortium, new_consortium });
+        }
+
+        fn _change_treasury(ref self: ContractState, new_treasury: ContractAddress) {
+            self.roles.only_app_governor();
+            assert(new_treasury.is_non_zero(), errors::INVALID_ZERO_ADDRESS);
+            let old_treasury = self.treasury.read();
+            self.treasury.write(new_treasury);
+            self.emit(events::TreasuryChanged { old_treasury, new_treasury });
         }
     }
 }
