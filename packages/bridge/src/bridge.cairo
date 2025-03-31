@@ -45,6 +45,7 @@ pub mod bridge {
         // --- Bridge ---
         consortium: ContractAddress,
         treasury: ContractAddress,
+        burn_commission: u64,
     }
 
     #[event]
@@ -62,6 +63,7 @@ pub mod bridge {
         ReplaceabilityEvent: ReplaceabilityComponent::Event,
         ConsortiumChanged: events::ConsortiumChanged,
         TreasuryChanged: events::TreasuryChanged,
+        BurnCommissionChanged: events::BurnCommissionChanged,
     }
 
     #[constructor]
@@ -88,6 +90,14 @@ pub mod bridge {
         fn get_treasury(self: @ContractState) -> ContractAddress {
             self.treasury.read()
         }
+
+        fn change_burn_commission(ref self: ContractState, new_burn_commission: u64) {
+            self._change_burn_commission(:new_burn_commission);
+        }
+
+        fn get_burn_commission(self: @ContractState) -> u64 {
+            self.burn_commission.read()
+        }
     }
 
 
@@ -107,6 +117,13 @@ pub mod bridge {
             let old_treasury = self.treasury.read();
             self.treasury.write(new_treasury);
             self.emit(events::TreasuryChanged { old_treasury, new_treasury });
+        }
+
+        fn _change_burn_commission(ref self: ContractState, new_burn_commission: u64) {
+            self.roles.only_app_governor();
+            let old_burn_commission = self.burn_commission.read();
+            self.burn_commission.write(new_burn_commission);
+            self.emit(events::BurnCommissionChanged { old_burn_commission, new_burn_commission });
         }
     }
 }

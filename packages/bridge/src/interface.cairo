@@ -6,4 +6,6 @@ pub trait IBridge<TContractState> {
     fn get_consortium(self: @TContractState) -> ContractAddress;
     fn change_treasury(ref self: TContractState, new_treasury: ContractAddress);
     fn get_treasury(self: @TContractState) -> ContractAddress;
+    fn change_burn_commission(ref self: TContractState, new_burn_commission: u64);
+    fn get_burn_commission(self: @TContractState) -> u64;
 }

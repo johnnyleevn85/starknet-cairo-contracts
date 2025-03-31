@@ -11,3 +11,9 @@ pub struct TreasuryChanged {
     pub old_treasury: ContractAddress,
     pub new_treasury: ContractAddress,
 }
+
+#[derive(Debug, Drop, PartialEq, starknet::Event)]
+pub struct BurnCommissionChanged {
+    pub old_burn_commission: u64,
+    pub new_burn_commission: u64,
+}
