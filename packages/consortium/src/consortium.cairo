@@ -1,17 +1,21 @@
 #[starknet::contract]
 pub mod consortium {
+    use core::num::traits::Zero;
+    use lbtc_consortium::errors::EPOCH_NOT_EXIST;
     use lbtc_consortium::events::ValidatorSetUpdated;
     use lbtc_consortium::interface::IConsortium;
     use openzeppelin::access::accesscontrol::AccessControlComponent;
     use openzeppelin::introspection::src5::SRC5Component;
     use starknet::ContractAddress;
-    use starknet::storage::{Map, StoragePointerReadAccess};
+    use starknet::storage::{Map, StoragePathEntry, StoragePointerReadAccess};
     use starkware_utils::components::pausable::PausableComponent;
     use starkware_utils::components::replaceability::ReplaceabilityComponent;
     use starkware_utils::components::replaceability::ReplaceabilityComponent::InternalReplaceabilityTrait;
     use starkware_utils::components::roles::RolesComponent;
     use starkware_utils::components::roles::RolesComponent::InternalTrait as RolesInternal;
-    use starkware_utils::iterable_map::IterableMap;
+    use starkware_utils::iterable_map::{
+        IterableMap, IterableMapIntoIterImpl, IterableMapReadAccessImpl,
+    };
     use starkware_utils::types::{PublicKey, Signature};
 
     component!(path: AccessControlComponent, storage: accesscontrol, event: AccessControlEvent);
@@ -34,7 +38,7 @@ pub mod consortium {
     pub struct ValidatorSet {
         // The public keys of the validators and their corresponding weights.
         pub validators: IterableMap<PublicKey, u128>,
-        pub weight_threshold: u128,
+        pub threshold_weight: u128,
     }
 
     #[storage]
@@ -83,14 +87,14 @@ pub mod consortium {
             ref self: ContractState,
             validator_pks: Array<PublicKey>,
             weights: Array<u128>,
-            weight_threshold: u128,
+            threshold_weight: u128,
         ) {}
 
         fn set_next_validator_set(
             ref self: ContractState,
             validator_pks: Array<PublicKey>,
             weights: Array<u128>,
-            weight_threshold: u128,
+            threshold_weight: u128,
             proof: Array<Signature>,
             signer_pks: Array<PublicKey>,
         ) {}
@@ -105,7 +109,18 @@ pub mod consortium {
         fn get_validator_set(
             self: @ContractState, epoch: u64,
         ) -> (Array<PublicKey>, Array<u128>, u128) {
-            Default::default()
+            let validator_set = self.validator_set_map.entry(epoch);
+            let threshold_weight = validator_set.threshold_weight.read();
+            assert(threshold_weight.is_non_zero(), EPOCH_NOT_EXIST);
+
+            let mut validator_pks = array![];
+            let mut weights = array![];
+            for (validator, weight) in validator_set.validators {
+                validator_pks.append(validator);
+                weights.append(weight);
+            }
+
+            (validator_pks, weights, threshold_weight)
         }
 
         fn get_current_epoch(self: @ContractState) -> u64 {

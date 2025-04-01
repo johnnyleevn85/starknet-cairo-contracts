@@ -6,13 +6,13 @@ pub trait IConsortium<TContractState> {
         ref self: TContractState,
         validator_pks: Array<PublicKey>,
         weights: Array<u128>,
-        weight_threshold: u128,
+        threshold_weight: u128,
     );
     fn set_next_validator_set(
         ref self: TContractState,
         validator_pks: Array<PublicKey>,
         weights: Array<u128>,
-        weight_threshold: u128,
+        threshold_weight: u128,
         proof: Array<Signature>,
         signer_pks: Array<PublicKey>,
     );

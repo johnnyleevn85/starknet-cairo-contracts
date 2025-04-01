@@ -1,0 +1,1 @@
+pub const EPOCH_NOT_EXIST: felt252 = 'EPOCH_NOT_EXIST';
