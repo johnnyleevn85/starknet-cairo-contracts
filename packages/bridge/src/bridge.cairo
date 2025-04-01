@@ -68,15 +68,24 @@ pub mod bridge {
 
     #[constructor]
     pub fn constructor(
-        ref self: ContractState, governance_admin: ContractAddress, upgrade_delay: u64,
+        ref self: ContractState,
+        governance_admin: ContractAddress,
+        upgrade_delay: u64,
+        consortium: ContractAddress,
+        treasury: ContractAddress,
+        burn_commission: u64,
     ) {
         self.roles.initialize(:governance_admin);
         self.replaceability.initialize(:upgrade_delay);
+        self._change_consortium(new_consortium: consortium);
+        self._change_treasury(new_treasury: treasury);
+        self._change_burn_commission(new_burn_commission: burn_commission);
     }
 
     #[abi(embed_v0)]
     pub impl BridgeImpl of IBridge<ContractState> {
         fn change_consortium(ref self: ContractState, new_consortium: ContractAddress) {
+            self.roles.only_app_governor();
             self._change_consortium(:new_consortium);
         }
 
@@ -84,6 +93,7 @@ pub mod bridge {
             self.consortium.read()
         }
         fn change_treasury(ref self: ContractState, new_treasury: ContractAddress) {
+            self.roles.only_app_governor();
             self._change_treasury(:new_treasury);
         }
 
@@ -92,6 +102,7 @@ pub mod bridge {
         }
 
         fn change_burn_commission(ref self: ContractState, new_burn_commission: u64) {
+            self.roles.only_app_governor();
             self._change_burn_commission(:new_burn_commission);
         }
 
@@ -104,7 +115,6 @@ pub mod bridge {
     #[generate_trait]
     impl PrivateImpl of PrivateBridge {
         fn _change_consortium(ref self: ContractState, new_consortium: ContractAddress) {
-            self.roles.only_app_governor();
             assert(new_consortium.is_non_zero(), errors::INVALID_ZERO_ADDRESS);
             let old_consortium = self.consortium.read();
             self.consortium.write(new_consortium);
@@ -112,7 +122,6 @@ pub mod bridge {
         }
 
         fn _change_treasury(ref self: ContractState, new_treasury: ContractAddress) {
-            self.roles.only_app_governor();
             assert(new_treasury.is_non_zero(), errors::INVALID_ZERO_ADDRESS);
             let old_treasury = self.treasury.read();
             self.treasury.write(new_treasury);
@@ -120,7 +129,6 @@ pub mod bridge {
         }
 
         fn _change_burn_commission(ref self: ContractState, new_burn_commission: u64) {
-            self.roles.only_app_governor();
             let old_burn_commission = self.burn_commission.read();
             self.burn_commission.write(new_burn_commission);
             self.emit(events::BurnCommissionChanged { old_burn_commission, new_burn_commission });
