@@ -96,15 +96,9 @@ pub mod consortium {
             weights: Array<u128>,
             threshold_weight: u128,
             proof: Array<Signature>,
-            signer_pks: Array<PublicKey>,
         ) {}
 
-        fn check_proof(
-            self: @ContractState,
-            payload_hash: felt252,
-            proof: Array<Signature>,
-            signer_pks: Array<PublicKey>,
-        ) {}
+        fn check_proof(self: @ContractState, payload_hash: felt252, proof: Array<Signature>) {}
 
         fn get_validator_set(
             self: @ContractState, epoch: u64,

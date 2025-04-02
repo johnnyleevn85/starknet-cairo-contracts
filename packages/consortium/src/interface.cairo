@@ -14,14 +14,8 @@ pub trait IConsortium<TContractState> {
         weights: Array<u128>,
         threshold_weight: u128,
         proof: Array<Signature>,
-        signer_pks: Array<PublicKey>,
     );
-    fn check_proof(
-        self: @TContractState,
-        payload_hash: felt252,
-        proof: Array<Signature>,
-        signer_pks: Array<PublicKey>,
-    );
+    fn check_proof(self: @TContractState, payload_hash: felt252, proof: Array<Signature>);
     fn get_validator_set(
         self: @TContractState, epoch: u64,
     ) -> (Array<PublicKey>, Array<u128>, u128);
