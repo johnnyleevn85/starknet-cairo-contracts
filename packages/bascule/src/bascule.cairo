@@ -87,7 +87,7 @@ pub mod bascule {
             self.pausable.assert_not_paused();
             self.roles.only_app_governor();
 
-            let old_threshold = self.get_validate_threshold();
+            let old_threshold = self.get_validatation_threshold();
             assert(old_threshold != new_threshold, errors::SAME_VALIDATION_THRESHOLD);
 
             self.validate_threshold.write(new_threshold);
@@ -98,10 +98,19 @@ pub mod bascule {
                     },
                 );
         }
+
+        fn set_max_deposits(ref self: ContractState, max_deposits: u32) {
+            self.pausable.assert_not_paused();
+            self.roles.only_app_governor();
+            self.max_deposits.write(max_deposits);
+            self.emit(events::MaxDepositsUpdated { num_deposits: max_deposits });
+        }
+
+
         /// View functions
 
         ///  Returns the minimum threshold for validating withdrawals.
-        fn get_validate_threshold(self: @ContractState) -> u128 {
+        fn get_validatation_threshold(self: @ContractState) -> u128 {
             self.validate_threshold.read()
         }
         /// Get maximum number of deposits that can be reported at once.

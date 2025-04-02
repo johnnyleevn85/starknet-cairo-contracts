@@ -6,7 +6,7 @@ pub struct UpdateValidateThreshold {
 
 #[derive(Debug, Drop, PartialEq, starknet::Event)]
 pub struct MaxDepositsUpdated {
-    pub num_deposits: u16,
+    pub num_deposits: u32,
 }
 
 #[derive(Debug, Drop, PartialEq, starknet::Event)]
