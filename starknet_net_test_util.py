@@ -102,9 +102,6 @@ class StarknetTestUtils:
         response.raise_for_status()
 
 
-# call_result = await client.get_block(block_number=1)
-
-
 class Starknet:
     """
     Represents a running instance of starknet.
