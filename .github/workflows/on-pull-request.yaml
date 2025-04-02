@@ -20,8 +20,8 @@ jobs:
       - name: Install starknet-devnet
         run: |
           asdf plugin add starknet-devnet
-          asdf install starknet-devnet 0.2.0
-          asdf global starknet-devnet 0.2.0
+          asdf install starknet-devnet 0.3.0
+          asdf global starknet-devnet 0.3.0
 
       - uses: foundry-rs/setup-snfoundry@v3
         with:
@@ -47,6 +47,10 @@ jobs:
       - name: Check formatting
         run: |
           scarb fmt -w --check
+
+      - name: Build Contracts
+        run: |
+          scarb build
 
       - uses: actions/setup-python@v4
         with:
