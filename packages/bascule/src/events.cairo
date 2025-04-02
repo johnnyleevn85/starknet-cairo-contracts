@@ -12,20 +12,20 @@ pub struct MaxDepositsUpdated {
 #[derive(Debug, Drop, PartialEq, starknet::Event)]
 pub struct DepositsReported {
     #[key]
-    pub report_id: felt252,
+    pub report_id: u256,
     pub num_deposits: u32,
 }
 
 #[derive(Debug, Drop, PartialEq, starknet::Event)]
 pub struct DepositAlreadyReported {
     #[key]
-    pub deposit_id: felt252,
+    pub deposit_id: u256,
 }
 
 #[derive(Debug, Drop, PartialEq, starknet::Event)]
 pub struct WithdrawalNotValidated {
     #[key]
-    pub deposit_id: felt252,
+    pub deposit_id: u256,
     pub withdrawal_amount: u128,
 }
 
@@ -33,6 +33,6 @@ pub struct WithdrawalNotValidated {
 #[derive(Debug, Drop, PartialEq, starknet::Event)]
 pub struct WithdrawalValidated {
     #[key]
-    pub deposit_id: felt252,
+    pub deposit_id: u256,
     pub withdrawal_amount: u128,
 }

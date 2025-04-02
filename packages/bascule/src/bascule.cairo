@@ -39,7 +39,7 @@ pub mod bascule {
         /// Maximum number of batch deposits it's possible to make at once
         max_deposits: u32,
         validate_threshold: u128,
-        deposit_history: Map<felt252, DepositState>,
+        deposit_history: Map<u256, DepositState>,
     }
 
     #[event]
@@ -73,7 +73,7 @@ pub mod bascule {
     #[abi(embed_v0)]
     pub impl BasculeImpl of IBascule<ContractState> {
         fn validate_withdrawal(
-            ref self: ContractState, deposit_id: felt252, withdrawal_amount: u128,
+            ref self: ContractState, deposit_id: u256, withdrawal_amount: u128,
         ) {}
         /// Updates the threshold for checking validation withdrawals.
         /// Only app governors can call this function.
@@ -113,9 +113,7 @@ pub mod bascule {
         //  @param reportId Unique identifier correponding to the report.
         //  @param depositIDs Unique identifiers of the deposits on another chain.
         //  Emits {DepositsReported}.
-        fn report_deposits(
-            ref self: ContractState, report_id: felt252, deposit_ids: Array<felt252>,
-        ) {
+        fn report_deposits(ref self: ContractState, report_id: u256, deposit_ids: Array<u256>) {
             self.pausable.assert_not_paused();
             self.roles.only_operator();
 
