@@ -6,12 +6,13 @@ pub mod bascule {
     use openzeppelin::introspection::src5::SRC5Component;
     use starknet::ContractAddress;
     use starknet::event::EventEmitter;
-    use starknet::storage::{Map, StoragePointerReadAccess, StoragePointerWriteAccess};
+    use starknet::storage::{
+        Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
+    };
     use starkware_utils::components::pausable::PausableComponent;
     use starkware_utils::components::pausable::PausableComponent::InternalTrait as PausableInternal;
     use starkware_utils::components::roles::RolesComponent;
     use starkware_utils::components::roles::RolesComponent::InternalTrait as RolesInternal;
-    use starkware_utils::components::roles::interface::SECURITY_AGENT;
 
 
     component!(path: AccessControlComponent, storage: accesscontrol, event: AccessControlEvent);
@@ -38,7 +39,7 @@ pub mod bascule {
         /// Maximum number of batch deposits it's possible to make at once
         max_deposits: u32,
         validate_threshold: u128,
-        depositHistory: Map<felt252, DepositState>,
+        deposit_history: Map<felt252, DepositState>,
     }
 
     #[event]
@@ -106,6 +107,38 @@ pub mod bascule {
             self.emit(events::MaxDepositsUpdated { num_deposits: max_deposits });
         }
 
+
+        //  Report that a series of deposit has happened.
+        //  May only be invoked by the deposit reporter.
+        //  @param reportId Unique identifier correponding to the report.
+        //  @param depositIDs Unique identifiers of the deposits on another chain.
+        //  Emits {DepositsReported}.
+        fn report_deposits(
+            ref self: ContractState, report_id: felt252, deposit_ids: Array<felt252>,
+        ) {
+            self.pausable.assert_not_paused();
+            self.roles.only_operator();
+
+            let deposit_ids_len = deposit_ids.len();
+            assert(deposit_ids_len <= self.get_max_deposits().into(), errors::BAD_DEPOSIT_REPORT);
+
+            for i in 0..deposit_ids_len {
+                let deposit_id = *deposit_ids[i];
+                let deposit_id_entry = self.deposit_history.entry(deposit_id);
+                if deposit_id_entry.read() == DepositState::UNREPORTED {
+                    deposit_id_entry.write(DepositState::REPORTED);
+                } else {
+                    // Only warn instead of reverting.
+                    self.emit(events::DepositAlreadyReported { deposit_id: deposit_id })
+                }
+            }
+            self
+                .emit(
+                    events::DepositsReported {
+                        report_id: report_id, num_deposits: deposit_ids_len,
+                    },
+                )
+        }
 
         /// View functions
 
