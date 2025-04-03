@@ -1,20 +1,32 @@
 #[starknet::contract]
 pub mod consortium {
+    use alexandria_sorting::MergeSort;
     use core::num::traits::Zero;
-    use lbtc_consortium::errors::EPOCH_NOT_EXIST;
+    use lbtc_consortium::errors::{
+        DUPLICATED_PUBLIC_KEY, INVALID_EPOCH, INVALID_VALIDATOR_SET_SIZE, INVALID_ZERO_WEIGHT,
+        INVALID_ZERO_WEIGHT_THRESHOLD, TOTAL_WEIGHT_UNDER_THRESHOLD, VALIDATORS_ALREADY_INITIALIZED,
+        VALIDATORS_WEIGHTS_LEN_MISMATCH,
+    };
     use lbtc_consortium::events::ValidatorSetUpdated;
     use lbtc_consortium::interface::IConsortium;
     use openzeppelin::access::accesscontrol::AccessControlComponent;
     use openzeppelin::introspection::src5::SRC5Component;
     use starknet::ContractAddress;
     use starknet::eth_address::EthAddress;
-    use starknet::storage::{Map, StoragePathEntry, StoragePointerReadAccess, Vec, VecTrait};
+    use starknet::storage::{
+        Map, MutableVecTrait, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
+        Vec, VecTrait,
+    };
     use starkware_utils::components::pausable::PausableComponent;
+    use starkware_utils::components::pausable::PausableComponent::InternalTrait as PausableInternal;
     use starkware_utils::components::replaceability::ReplaceabilityComponent;
     use starkware_utils::components::replaceability::ReplaceabilityComponent::InternalReplaceabilityTrait;
     use starkware_utils::components::roles::RolesComponent;
     use starkware_utils::components::roles::RolesComponent::InternalTrait as RolesInternal;
     use starkware_utils::types::Signature;
+
+    const MIN_VALIDATOR_SET_SIZE: u32 = 1;
+    const MAX_VALIDATOR_SET_SIZE: u32 = 102;
 
     component!(path: AccessControlComponent, storage: accesscontrol, event: AccessControlEvent);
     component!(path: PausableComponent, storage: pausable, event: PausableEvent);
@@ -89,15 +101,42 @@ pub mod consortium {
             validators: Array<EthAddress>,
             weights: Array<u128>,
             threshold_weight: u128,
-        ) {}
+        ) {
+            self.pausable.assert_not_paused();
+            self.roles.only_app_governor();
+
+            // Validations.
+            assert(self.epoch.read().is_zero(), VALIDATORS_ALREADY_INITIALIZED);
+            self
+                ._validate_new_validator_set(
+                    validators: @validators, weights: @weights, :threshold_weight,
+                );
+
+            self._set_validator_set(epoch: 1, :validators, :weights, :threshold_weight);
+        }
 
         fn set_next_validator_set(
             ref self: ContractState,
+            epoch: u64,
             validators: Array<EthAddress>,
             weights: Array<u128>,
             threshold_weight: u128,
             proof: Array<Signature>,
-        ) {}
+        ) {
+            self.pausable.assert_not_paused();
+
+            // Validations.
+            let cur_epoch = self.epoch.read();
+            assert(cur_epoch + 1 == epoch, INVALID_EPOCH);
+            self
+                ._validate_new_validator_set(
+                    validators: @validators, weights: @weights, :threshold_weight,
+                );
+            // TODO(Mohammad): Update payload hash.
+            self.check_proof(payload_hash: Zero::zero(), :proof);
+
+            self._set_validator_set(:epoch, :validators, :weights, :threshold_weight);
+        }
 
         fn check_proof(self: @ContractState, payload_hash: felt252, proof: Array<Signature>) {}
 
@@ -106,7 +145,7 @@ pub mod consortium {
         ) -> (Array<EthAddress>, Array<u128>, u128) {
             let validator_set = self.validator_set_map.entry(epoch);
             let threshold_weight = validator_set.threshold_weight.read();
-            assert(threshold_weight.is_non_zero(), EPOCH_NOT_EXIST);
+            assert(threshold_weight.is_non_zero(), INVALID_EPOCH);
 
             let mut validators = array![];
             let mut weights = array![];
@@ -122,6 +161,73 @@ pub mod consortium {
 
         fn get_current_epoch(self: @ContractState) -> u64 {
             self.epoch.read()
+        }
+    }
+
+    #[generate_trait]
+    impl ConsortiumPrivateImpl of ConsortiumPrivateTrait {
+        fn _validate_new_validator_set(
+            ref self: ContractState,
+            validators: @Array<EthAddress>,
+            weights: @Array<u128>,
+            threshold_weight: u128,
+        ) {
+            assert(threshold_weight.is_non_zero(), INVALID_ZERO_WEIGHT_THRESHOLD);
+            assert(validators.len() == weights.len(), VALIDATORS_WEIGHTS_LEN_MISMATCH);
+
+            let validator_set_size = validators.len();
+            assert(validator_set_size >= MIN_VALIDATOR_SET_SIZE, INVALID_VALIDATOR_SET_SIZE);
+            assert(validator_set_size <= MAX_VALIDATOR_SET_SIZE, INVALID_VALIDATOR_SET_SIZE);
+
+            _check_uniqness(arr: validators);
+        }
+
+        fn _set_validator_set(
+            ref self: ContractState,
+            epoch: u64,
+            validators: Array<EthAddress>,
+            weights: Array<u128>,
+            threshold_weight: u128,
+        ) {
+            let mut validator_set = self.validator_set_map.entry(epoch);
+            let mut total_weight = 0;
+            for i in 0..validators.len() {
+                let weight = *weights[i];
+                assert(weight.is_non_zero(), INVALID_ZERO_WEIGHT);
+
+                let validator = *validators[i];
+                validator_set.validators.push(validator);
+                validator_set.weights.push(weight);
+
+                total_weight = total_weight + weight;
+            }
+
+            assert(total_weight >= threshold_weight, TOTAL_WEIGHT_UNDER_THRESHOLD);
+            validator_set.threshold_weight.write(threshold_weight);
+            self.epoch.write(epoch);
+
+            // Emit event.
+            self
+                .emit(
+                    ValidatorSetUpdated { epoch, validators, weights, threshold: threshold_weight },
+                );
+        }
+    }
+
+    // TODO(Mohammad): move it to starkware_utils repo.
+    fn _check_uniqness(arr: @Array<EthAddress>) {
+        // As `felt252` does not implement `PartialOrd`.
+        let mut arr_u256: Array<u256> = array![];
+        for e in arr {
+            let e_felt252: felt252 = (*e).into();
+            arr_u256.append(e_felt252.into());
+        }
+
+        let sorted_arr_u256 = MergeSort::sort(arr_u256.span());
+        let mut prev_v: u256 = Zero::zero();
+        for v in sorted_arr_u256 {
+            assert(v != prev_v, DUPLICATED_PUBLIC_KEY);
+            prev_v = v;
         }
     }
 }

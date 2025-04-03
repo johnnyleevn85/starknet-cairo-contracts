@@ -17,6 +17,7 @@ scarb.workspace = true
 
 [dependencies]
 openzeppelin.workspace = true
+alexandria_sorting.workspace = true
 starknet.workspace = true
 starkware_utils.workspace = true
 

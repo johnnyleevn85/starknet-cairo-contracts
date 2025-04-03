@@ -11,6 +11,7 @@ pub trait IConsortium<TContractState> {
     );
     fn set_next_validator_set(
         ref self: TContractState,
+        epoch: u64,
         validators: Array<EthAddress>,
         weights: Array<u128>,
         threshold_weight: u128,
