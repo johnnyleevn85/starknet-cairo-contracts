@@ -25,8 +25,8 @@ assert_macros = "2.11.2"
 openzeppelin = "1.0.0"
 openzeppelin_testing = "2.0.0"
 alexandria_sorting = "0.5.0"
-starkware_utils = "0.1.1"
-starkware_utils_testing = "1.0.0"
+starkware_utils = { git ="https://github.com/starkware-libs/starkware-starknet-utils", branch="main" }
+starkware_utils_testing = { git="https://github.com/starkware-libs/starkware-starknet-utils", branch="main" }
 
 [workspace.tool.fmt]
 sort-module-level-items = true

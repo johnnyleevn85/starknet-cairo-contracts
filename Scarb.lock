@@ -34,6 +34,7 @@ dependencies = [
  "openzeppelin_testing",
  "snforge_std",
  "starkware_utils",
+ "starkware_utils_testing",
 ]
 
 [[package]]
@@ -204,8 +205,7 @@ dependencies = [
 [[package]]
 name = "starkware_utils"
 version = "0.1.1"
-source = "registry+https://scarbs.xyz/"
-checksum = "sha256:9826e183fdb4a6727c002e41766acdf0ddca1281f4679613f8bed832356fbd27"
+source = "git+https://github.com/starkware-libs/starkware-starknet-utils?branch=main#1605d770e9bdcccde840359e293a982627bbf407"
 dependencies = [
  "openzeppelin",
 ]
@@ -213,8 +213,7 @@ dependencies = [
 [[package]]
 name = "starkware_utils_testing"
 version = "1.0.0"
-source = "registry+https://scarbs.xyz/"
-checksum = "sha256:cea3f1409c5e95e78b6c2d34854358d85af91e2aa533922eb0c013876484bdb6"
+source = "git+https://github.com/starkware-libs/starkware-starknet-utils?branch=main#1605d770e9bdcccde840359e293a982627bbf407"
 dependencies = [
  "openzeppelin",
  "openzeppelin_testing",
