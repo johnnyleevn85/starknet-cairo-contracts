@@ -13,6 +13,7 @@ pub mod consortium {
     use openzeppelin::introspection::src5::SRC5Component;
     use starknet::ContractAddress;
     use starknet::eth_address::EthAddress;
+    use starknet::secp256_trait::Signature;
     use starknet::storage::{
         Map, MutableVecTrait, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
         Vec, VecTrait,
@@ -23,7 +24,6 @@ pub mod consortium {
     use starkware_utils::components::replaceability::ReplaceabilityComponent::InternalReplaceabilityTrait;
     use starkware_utils::components::roles::RolesComponent;
     use starkware_utils::components::roles::RolesComponent::InternalTrait as RolesInternal;
-    use starkware_utils::types::Signature;
 
     const MIN_VALIDATOR_SET_SIZE: u32 = 1;
     const MAX_VALIDATOR_SET_SIZE: u32 = 102;
@@ -138,7 +138,7 @@ pub mod consortium {
             self._set_validator_set(:epoch, :validators, :weights, :threshold_weight);
         }
 
-        fn check_proof(self: @ContractState, payload_hash: felt252, proof: Array<Signature>) {}
+        fn check_proof(self: @ContractState, payload_hash: u256, proof: Array<Signature>) {}
 
         fn get_validator_set(
             self: @ContractState, epoch: u64,

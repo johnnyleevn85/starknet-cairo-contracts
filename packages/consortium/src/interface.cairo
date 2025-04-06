@@ -1,5 +1,5 @@
 use starknet::eth_address::EthAddress;
-use starkware_utils::types::Signature;
+use starknet::secp256_trait::Signature;
 
 #[starknet::interface]
 pub trait IConsortium<TContractState> {
@@ -17,7 +17,7 @@ pub trait IConsortium<TContractState> {
         threshold_weight: u128,
         proof: Array<Signature>,
     );
-    fn check_proof(self: @TContractState, payload_hash: felt252, proof: Array<Signature>);
+    fn check_proof(self: @TContractState, payload_hash: u256, proof: Array<Signature>);
     fn get_validator_set(
         self: @TContractState, epoch: u64,
     ) -> (Array<EthAddress>, Array<u128>, u128);

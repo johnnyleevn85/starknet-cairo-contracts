@@ -46,6 +46,7 @@ dependencies = [
  "openzeppelin_testing",
  "snforge_std",
  "starkware_utils",
+ "starkware_utils_testing",
 ]
 
 [[package]]
