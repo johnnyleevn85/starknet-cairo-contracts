@@ -2,10 +2,12 @@
 pub mod consortium {
     use alexandria_sorting::MergeSort;
     use core::num::traits::Zero;
+    use core::panic_with_felt252;
     use lbtc_consortium::errors::{
-        DUPLICATED_PUBLIC_KEY, INVALID_EPOCH, INVALID_VALIDATOR_SET_SIZE, INVALID_ZERO_WEIGHT,
-        INVALID_ZERO_WEIGHT_THRESHOLD, TOTAL_WEIGHT_UNDER_THRESHOLD, VALIDATORS_ALREADY_INITIALIZED,
-        VALIDATORS_WEIGHTS_LEN_MISMATCH,
+        DUPLICATED_PUBLIC_KEY, INVALID_EPOCH, INVALID_SIGNATURE, INVALID_VALIDATOR_SET_SIZE,
+        INVALID_ZERO_WEIGHT, INVALID_ZERO_WEIGHT_THRESHOLD, NOT_ENOUGH_SIGNATURES,
+        TOTAL_WEIGHT_UNDER_THRESHOLD, VALIDATORS_ALREADY_INITIALIZED, VALIDATORS_PROOF_LEN_MISMATCH,
+        VALIDATORS_WEIGHTS_LEN_MISMATCH, VALIDATORS_WERE_NOT_INITIALIZED,
     };
     use lbtc_consortium::events::ValidatorSetUpdated;
     use lbtc_consortium::interface::IConsortium;
@@ -13,7 +15,9 @@ pub mod consortium {
     use openzeppelin::introspection::src5::SRC5Component;
     use starknet::ContractAddress;
     use starknet::eth_address::EthAddress;
-    use starknet::secp256_trait::Signature;
+    use starknet::eth_signature::public_key_point_to_eth_address;
+    use starknet::secp256_trait::{Signature, recover_public_key};
+    use starknet::secp256k1::Secp256k1Point;
     use starknet::storage::{
         Map, MutableVecTrait, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
         Vec, VecTrait,
@@ -138,7 +142,40 @@ pub mod consortium {
             self._set_validator_set(:epoch, :validators, :weights, :threshold_weight);
         }
 
-        fn check_proof(self: @ContractState, payload_hash: u256, proof: Array<Signature>) {}
+        fn check_proof(self: @ContractState, payload_hash: u256, proof: Array<Signature>) {
+            let epoch = self.get_current_epoch();
+            assert(epoch.is_non_zero(), VALIDATORS_WERE_NOT_INITIALIZED);
+
+            let validator_set = self.validator_set_map.entry(epoch);
+            assert(
+                validator_set.validators.len() == proof.len().into(), VALIDATORS_PROOF_LEN_MISMATCH,
+            );
+
+            let mut total_weight = 0;
+            let mut i = 0;
+            for signature in proof {
+                // Check signature.
+                if signature.r == 0 && signature.s == 0 {
+                    continue;
+                }
+                let pk = recover_public_key::<Secp256k1Point>(msg_hash: payload_hash, :signature);
+                match pk {
+                    Option::Some(pk) => {
+                        let address = public_key_point_to_eth_address(public_key_point: pk);
+                        let validator = validator_set.validators[i].read();
+                        assert(address == validator, INVALID_SIGNATURE);
+                    },
+                    Option::None => { panic_with_felt252(INVALID_SIGNATURE); },
+                }
+
+                let weight = validator_set.weights[i].read();
+                total_weight += weight;
+                i += 1;
+            }
+
+            let threshold_weight = validator_set.threshold_weight.read();
+            assert(total_weight >= threshold_weight, NOT_ENOUGH_SIGNATURES);
+        }
 
         fn get_validator_set(
             self: @ContractState, epoch: u64,
