@@ -11,6 +11,7 @@ pub mod consortium {
     };
     use lbtc_consortium::events::ValidatorSetUpdated;
     use lbtc_consortium::interface::IConsortium;
+    use lbtc_consortium::utils::calculate_hash_for_next_validators;
     use openzeppelin::access::accesscontrol::AccessControlComponent;
     use openzeppelin::introspection::src5::SRC5Component;
     use starknet::ContractAddress;
@@ -125,6 +126,7 @@ pub mod consortium {
             validators: Array<EthAddress>,
             weights: Array<u128>,
             threshold_weight: u128,
+            height: u128,
             proof: Array<Signature>,
         ) {
             self.pausable.assert_not_paused();
@@ -136,8 +138,11 @@ pub mod consortium {
                 ._validate_new_validator_set(
                     validators: @validators, weights: @weights, :threshold_weight,
                 );
-            // TODO(Mohammad): Update payload hash.
-            self.check_proof(payload_hash: Zero::zero(), :proof);
+
+            let payload_hash = calculate_hash_for_next_validators(
+                :epoch, validators: @validators, weights: @weights, :threshold_weight, :height,
+            );
+            self.check_proof(:payload_hash, :proof);
 
             self._set_validator_set(:epoch, :validators, :weights, :threshold_weight);
         }

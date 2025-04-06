@@ -25,6 +25,7 @@ assert_macros = "2.11.2"
 openzeppelin = "1.0.0"
 openzeppelin_testing = "2.0.0"
 alexandria_sorting = "0.5.0"
+alexandria_bytes = "0.5.0"
 starkware_utils = { git ="https://github.com/starkware-libs/starkware-starknet-utils", branch="main" }
 starkware_utils_testing = { git="https://github.com/starkware-libs/starkware-starknet-utils", branch="main" }
 
