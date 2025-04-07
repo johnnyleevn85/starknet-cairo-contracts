@@ -17,4 +17,9 @@ async def test_foo(starknet_test_utils: StarknetTestUtils):
         auto_estimate=True,
     )
     await declare_result.wait_for_acceptance()
-    assert True
+    deploy_result = await declare_result.deploy_v3(auto_estimate=True, constructor_args=[0x5, 50])
+    await deploy_result.wait_for_acceptance()
+    contract = deploy_result.deployed_contract
+    (res,) = await contract.functions["get_max_deposits"].call()
+
+    assert res == 50
