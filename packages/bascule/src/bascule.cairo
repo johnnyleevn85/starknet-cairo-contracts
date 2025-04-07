@@ -38,7 +38,26 @@ pub mod bascule {
         src5: SRC5Component::Storage,
         /// Maximum number of batch deposits it's possible to make at once
         max_deposits: u32,
+        /// The bascule validates all withdrawals whose amounts are greater than or
+        /// equal to this threshold. The bascule allows all withdrawals below this
+        /// threshold. The contract will still produce events that off-chain code can
+        /// use to monitor smaller withdrawals. This threshold can only be changed by
+        /// the app governor.
+        ///
+        /// When the threshold is zero (the default), the bascule validates all
+        /// withdrawals.
+        ///
+        /// NOTE: Raising this threshold should be done with extreme caution.  In
+        /// particular, you MUST make sure that validate_withdrawal is called with a
+        /// correct withdrawal amount.
         validate_threshold: u128,
+        /// Mapping that tracks deposits on a different chain that can be used to
+        /// withdraw the corresponding funds on this chain.
+        ///
+        /// NOTE: The deposit identifier should be a hash with enough information to
+        /// uniquely identify the deposit transaction on the source chain and the
+        /// recipient, amount, and chain-id on this chain.
+        /// See README for more.
         deposit_history: Map<u256, DepositState>,
     }
 
