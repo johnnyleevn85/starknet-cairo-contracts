@@ -4,15 +4,16 @@ pub mod bascule {
     use lbtc_bascule::{errors, events};
     use openzeppelin::access::accesscontrol::AccessControlComponent;
     use openzeppelin::introspection::src5::SRC5Component;
-    use starknet::ContractAddress;
     use starknet::event::EventEmitter;
     use starknet::storage::{
         Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
     };
+    use starknet::{ContractAddress, get_caller_address};
     use starkware_utils::components::pausable::PausableComponent;
     use starkware_utils::components::pausable::PausableComponent::InternalTrait as PausableInternal;
     use starkware_utils::components::roles::RolesComponent;
     use starkware_utils::components::roles::RolesComponent::InternalTrait as RolesInternal;
+    use starkware_utils::errors::assert_with_byte_array;
 
 
     component!(path: AccessControlComponent, storage: accesscontrol, event: AccessControlEvent);
@@ -51,6 +52,9 @@ pub mod bascule {
         /// particular, you MUST make sure that validate_withdrawal is called with a
         /// correct withdrawal amount.
         validate_threshold: u128,
+        // Only validation_consumer can validate withdrawals (and thus remove deposits from
+        // the history)
+        validation_consumer: ContractAddress,
         /// Mapping that tracks deposits on a different chain that can be used to
         /// withdraw the corresponding funds on this chain.
         ///
@@ -58,7 +62,7 @@ pub mod bascule {
         /// uniquely identify the deposit transaction on the source chain and the
         /// recipient, amount, and chain-id on this chain.
         /// See README for more.
-        deposit_history: Map<u256, DepositState>,
+        deposit_status: Map<u256, DepositState>,
     }
 
     #[event]
@@ -80,20 +84,78 @@ pub mod bascule {
         WithdrawalValidated: events::WithdrawalValidated,
     }
 
+
     #[constructor]
     pub fn constructor(
-        ref self: ContractState, governance_admin: ContractAddress, max_deposits: u32,
+        ref self: ContractState,
+        governance_admin: ContractAddress,
+        max_deposits: u32,
+        validation_consumer: ContractAddress,
     ) {
         self.roles.initialize(:governance_admin);
         self.max_deposits.write(max_deposits);
+        self.validation_consumer.write(validation_consumer);
     }
     use lbtc_bascule::interface::IBascule;
 
     #[abi(embed_v0)]
     pub impl BasculeImpl of IBascule<ContractState> {
-        fn validate_withdrawal(
-            ref self: ContractState, deposit_id: u256, withdrawal_amount: u128,
-        ) {}
+        // Validate a withdrawal (before executing it) if the amount is above
+        // threshold.
+        //
+        // This function checks if our accounting has recorded a deposit that
+        // corresponds to this withdrawal request. A deposit can only be withdrawn
+        // once.
+        //
+        // Emits {WithdrawalValidated}.
+        fn validate_withdrawal(ref self: ContractState, deposit_id: u256, withdrawal_amount: u128) {
+            self.pausable.assert_not_paused();
+            assert(
+                get_caller_address() == self.validation_consumer.read(),
+                errors::UNAUTHORIZED_WITHDRAWAL_CALLER,
+            );
+
+            let deposit_id_entry = self.deposit_status.entry(deposit_id);
+            let status = deposit_id_entry.read();
+            if status == DepositState::REPORTED {
+                deposit_id_entry.write(DepositState::WITHDRAWN);
+                self
+                    .emit(
+                        events::WithdrawalValidated {
+                            deposit_id: deposit_id, withdrawal_amount: withdrawal_amount,
+                        },
+                    );
+                return;
+            }
+
+            // Already withdrawn
+            assert_with_byte_array(
+                status != DepositState::WITHDRAWN,
+                errors::already_withdrawn(:deposit_id, :withdrawal_amount),
+            );
+
+            // Not reported
+            // We disallow a withdrawal if it's not in the depositHistory and
+            // the value is above the threshold.
+            assert_with_byte_array(
+                withdrawal_amount < self.get_validatation_threshold(),
+                errors::Withdrawal_failed_validation(:deposit_id, :withdrawal_amount),
+            );
+
+            // We don't have the deposit_id in the deposit_status, and the value of the
+            // withdrawal is below the threshold, so we allow the withdrawal without
+            // additional on-chain validation.
+            //
+            // This contract records withdrawals
+            // even when the validation threshold is raised.
+            deposit_id_entry.write(DepositState::WITHDRAWN);
+            self
+                .emit(
+                    events::WithdrawalNotValidated {
+                        deposit_id: deposit_id, withdrawal_amount: withdrawal_amount,
+                    },
+                )
+        }
         /// Updates the threshold for checking validation withdrawals.
         /// Only app governors can call this function.
         ///
@@ -141,7 +203,7 @@ pub mod bascule {
 
             for i in 0..deposit_ids_len {
                 let deposit_id = *deposit_ids[i];
-                let deposit_id_entry = self.deposit_history.entry(deposit_id);
+                let deposit_id_entry = self.deposit_status.entry(deposit_id);
                 if deposit_id_entry.read() == DepositState::UNREPORTED {
                     deposit_id_entry.write(DepositState::REPORTED);
                 } else {

@@ -20,7 +20,9 @@ async def bascule_contract(starknet_test_utils: StarknetTestUtils) -> Contract:
         auto_estimate=True,
     )
     await declare_result.wait_for_acceptance()
-    deploy_result = await declare_result.deploy_v3(auto_estimate=True, constructor_args=[0x5, 50])
+    deploy_result = await declare_result.deploy_v3(
+        auto_estimate=True, constructor_args=[0x5, 50, 0x5]
+    )
     await deploy_result.wait_for_acceptance()
     return deploy_result.deployed_contract
 
