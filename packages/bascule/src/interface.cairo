@@ -1,3 +1,7 @@
+use lbtc_bascule::types::DepositState;
+use starknet::ContractAddress;
+
+
 #[starknet::interface]
 pub trait IBascule<TContractState> {
     /// Validates a withdrawal (before executing it) if the amount is above a threshold.
@@ -22,4 +26,6 @@ pub trait IBascule<TContractState> {
     /// View functions
     fn get_validatation_threshold(self: @TContractState) -> u128;
     fn get_max_deposits(self: @TContractState) -> u32;
+    fn get_validation_consumer(self: @TContractState) -> ContractAddress;
+    fn get_deposit_status(self: @TContractState, deposit_id: u256) -> DepositState;
 }

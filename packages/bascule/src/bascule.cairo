@@ -229,6 +229,17 @@ pub mod bascule {
         fn get_max_deposits(self: @ContractState) -> u32 {
             self.max_deposits.read()
         }
+
+        /// Get the validation consumer.
+        fn get_validation_consumer(self: @ContractState) -> ContractAddress {
+            self.validation_consumer.read()
+        }
+
+
+        /// Get the deposit status.
+        fn get_deposit_status(self: @ContractState, deposit_id: u256) -> DepositState {
+            self.deposit_status.entry(deposit_id).read()
+        }
     }
 }
 
