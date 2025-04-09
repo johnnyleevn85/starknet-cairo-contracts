@@ -151,7 +151,7 @@ pub mod bascule {
             // We disallow a withdrawal if it's not in the depositHistory and
             // the value is above the threshold.
             assert_with_byte_array(
-                withdrawal_amount < self.get_validatation_threshold(),
+                withdrawal_amount < self.get_validation_threshold(),
                 errors::Withdrawal_failed_validation(:deposit_id, :withdrawal_amount),
             );
 
@@ -182,7 +182,7 @@ pub mod bascule {
             self.pausable.assert_not_paused();
             self.roles.only_app_governor();
 
-            let old_threshold = self.get_validatation_threshold();
+            let old_threshold = self.get_validation_threshold();
             assert(old_threshold != new_threshold, errors::SAME_VALIDATION_THRESHOLD);
 
             self.validate_threshold.write(new_threshold);
@@ -204,7 +204,7 @@ pub mod bascule {
 
         //  Report that a series of deposit has happened.
         //  May only be invoked by the deposit reporter.
-        //  @param reportId Unique identifier correponding to the report.
+        //  @param reportId Unique identifier corresponding to the report.
         //  @param depositIDs Unique identifiers of the deposits on another chain.
         //  Emits {DepositsReported}.
         fn report_deposits(ref self: ContractState, report_id: u256, deposit_ids: Array<u256>) {
@@ -235,7 +235,7 @@ pub mod bascule {
         /// View functions
 
         ///  Returns the minimum threshold for validating withdrawals.
-        fn get_validatation_threshold(self: @ContractState) -> u128 {
+        fn get_validation_threshold(self: @ContractState) -> u128 {
             self.validate_threshold.read()
         }
         /// Get maximum number of deposits that can be reported at once.
