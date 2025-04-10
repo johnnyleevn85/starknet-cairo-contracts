@@ -6,7 +6,6 @@ use openzeppelin::token::erc20::interface::{
 use starkware_utils::components::pausable::interface::{
     IPausableDispatcher, IPausableDispatcherTrait,
 };
-use starkware_utils::components::roles::interface::{IRolesDispatcher, IRolesDispatcherTrait};
 use starkware_utils::interfaces::mintable_token::{
     IMintableTokenDispatcher, IMintableTokenDispatcherTrait,
 };
@@ -16,7 +15,7 @@ use starkware_utils_testing::test_utils::cheat_caller_address_once;
 
 #[test]
 fn test_lbtc() {
-    let lbtc_address = deploy_lbtc_token();
+    let lbtc_address = init_token_with_roles();
     let metadata = IERC20MetadataDispatcher { contract_address: lbtc_address };
     let name = metadata.name();
     let symbol = metadata.symbol();
@@ -29,13 +28,13 @@ fn test_lbtc() {
 
 #[test]
 fn test_lbtc_mint() {
-    let lbtc_address = deploy_lbtc_token();
+    let lbtc_address = init_token_with_roles();
     let erc20 = IERC20Dispatcher { contract_address: lbtc_address };
+    let mintable = IMintableTokenDispatcher { contract_address: lbtc_address };
     let balance = erc20.balance_of(constants::PERMITTED_MINTER);
     assert_eq!(0, balance);
     let total_supply = erc20.total_supply();
     assert_eq!(0, total_supply);
-    let mintable = IMintableTokenDispatcher { contract_address: lbtc_address };
     cheat_caller_address_once(lbtc_address, constants::PERMITTED_MINTER);
     mintable.permissioned_mint(testing_constants::DUMMY_ADDRESS, 1000);
     let balance = erc20.balance_of(testing_constants::DUMMY_ADDRESS);
@@ -46,7 +45,7 @@ fn test_lbtc_mint() {
 
 #[test]
 fn test_lbtc_burn() {
-    let lbtc_address = deploy_lbtc_token();
+    let lbtc_address = init_token_with_roles();
     let erc20 = IERC20Dispatcher { contract_address: lbtc_address };
     let mintable = IMintableTokenDispatcher { contract_address: lbtc_address };
     cheat_caller_address_once(lbtc_address, constants::PERMITTED_MINTER);
@@ -66,12 +65,9 @@ fn test_lbtc_burn() {
 #[test]
 #[should_panic(expected: 'PAUSED')]
 fn test_lbtc_paused() {
-    let lbtc_address = deploy_lbtc_token();
+    let lbtc_address = init_token_with_roles();
     let mintable = IMintableTokenDispatcher { contract_address: lbtc_address };
     let pausable = IPausableDispatcher { contract_address: lbtc_address };
-    let roles = IRolesDispatcher { contract_address: lbtc_address };
-    cheat_caller_address_once(lbtc_address, testing_constants::GOVERNANCE_ADMIN);
-    roles.register_security_agent(testing_constants::SECURITY_AGENT);
     cheat_caller_address_once(lbtc_address, testing_constants::SECURITY_AGENT);
     pausable.pause();
     cheat_caller_address_once(lbtc_address, constants::PERMITTED_MINTER);
@@ -81,7 +77,7 @@ fn test_lbtc_paused() {
 #[test]
 #[should_panic(expected: 'INVALID_MINTER')]
 fn test_lbtc_invalid_minter() {
-    let lbtc_address = deploy_lbtc_token();
+    let lbtc_address = init_token_with_roles();
     let mintable = IMintableTokenDispatcher { contract_address: lbtc_address };
     mintable.permissioned_mint(testing_constants::DUMMY_ADDRESS, 1000);
 }

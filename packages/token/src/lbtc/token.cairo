@@ -1,11 +1,12 @@
 #[starknet::contract]
 mod lbtc {
-    use lbtc_token::lbtc::errors;
+    use core::num::traits::Zero;
+    use lbtc_token::lbtc::{errors, events};
     use openzeppelin::access::accesscontrol::AccessControlComponent;
     use openzeppelin::introspection::src5::SRC5Component;
     use openzeppelin::token::erc20::ERC20Component;
     use openzeppelin::token::erc20::interface::IERC20Metadata;
-    use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
+    use starknet::storage::{Map, StorageMapReadAccess, StorageMapWriteAccess};
     use starknet::{ContractAddress, get_caller_address};
     use starkware_utils::components::pausable::PausableComponent;
     use starkware_utils::components::pausable::PausableComponent::InternalTrait as PausableInternal;
@@ -56,7 +57,7 @@ mod lbtc {
         #[substorage(v0)]
         roles: RolesComponent::Storage,
         // --- MintableToken ---
-        permitted_minter: ContractAddress,
+        permitted_minters: Map<ContractAddress, bool>,
     }
 
     #[event]
@@ -74,6 +75,7 @@ mod lbtc {
         ReplaceabilityEvent: ReplaceabilityComponent::Event,
         #[flat]
         RolesEvent: RolesComponent::Event,
+        MinterAdded: events::MinterAdded,
     }
 
     fn NAME() -> ByteArray {
@@ -89,14 +91,14 @@ mod lbtc {
     #[constructor]
     fn constructor(
         ref self: ContractState,
-        permitted_minter: ContractAddress,
         governance_admin: ContractAddress,
+        permitted_minters: Span<ContractAddress>,
         upgrade_delay: u64,
     ) {
         self.roles.initialize(:governance_admin);
         self.replaceability.initialize(:upgrade_delay);
-        self.permitted_minter.write(permitted_minter);
         self.erc20.initializer(NAME(), SYMBOL());
+        self._add_permitted_minters(:permitted_minters);
     }
 
     #[abi(embed_v0)]
@@ -135,13 +137,39 @@ mod lbtc {
     #[abi(embed_v0)]
     pub impl MintableTokenImpl of IMintableToken<ContractState> {
         fn permissioned_mint(ref self: ContractState, account: ContractAddress, amount: u256) {
-            assert(get_caller_address() == self.permitted_minter.read(), errors::INVALID_MINTER);
+            self._only_permitted_minter();
             self.erc20.mint(account, amount);
         }
 
         fn permissioned_burn(ref self: ContractState, account: ContractAddress, amount: u256) {
-            assert(get_caller_address() == self.permitted_minter.read(), errors::INVALID_MINTER);
+            self._only_permitted_minter();
             self.erc20.burn(account, amount);
+        }
+
+        fn is_permitted_minter(self: @ContractState, account: ContractAddress) -> bool {
+            self.permitted_minters.read(account)
+        }
+    }
+
+    #[generate_trait]
+    impl PrivateImpl of PrivateTrait {
+        fn _add_permitted_minters(
+            ref self: ContractState, permitted_minters: Span<ContractAddress>,
+        ) {
+            assert(
+                0 < permitted_minters.len() && permitted_minters.len() <= 5,
+                errors::INVALID_MINTERS_LIST,
+            );
+            for account in permitted_minters {
+                assert(account.is_non_zero(), errors::INVALID_ZERO_ADDRESS);
+                self.permitted_minters.write(*account, true);
+                self.emit(events::MinterAdded { minter: *account });
+            }
+        }
+
+        fn _only_permitted_minter(self: @ContractState) {
+            let caller = get_caller_address();
+            assert(self.is_permitted_minter(account: caller), errors::INVALID_MINTER);
         }
     }
 }
