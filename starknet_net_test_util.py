@@ -144,7 +144,7 @@ class Starknet:
                 signer=signer,
                 chain=self.starknet_chain_id,
             )
-        self.accounts.append(account)
+            self.accounts.append(account)
 
     def __del__(self):
         self.stop()
