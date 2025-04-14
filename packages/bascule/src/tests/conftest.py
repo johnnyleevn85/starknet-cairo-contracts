@@ -59,41 +59,19 @@ async def bascule_test_context(starknet_test_utils: StarknetTestUtils) -> dict:
     }
 
     # Grant roles
-    await (
-        await contracts_by_role["governance_admin"]
-        .functions["register_app_role_admin"]
-        .invoke_v3(roles["app_role_admin"].address, auto_estimate=True)
-    ).wait_for_acceptance()
+    for role_name in ["app_role_admin", "upgrade_governor", "security_admin"]:
+        await (
+            await contracts_by_role["governance_admin"]
+            .functions[f"register_{role_name}"]
+            .invoke_v3(roles[role_name].address, auto_estimate=True)
+        ).wait_for_acceptance()
 
-    await (
-        await contracts_by_role["governance_admin"]
-        .functions["register_upgrade_governor"]
-        .invoke_v3(roles["upgrade_governor"].address, auto_estimate=True)
-    ).wait_for_acceptance()
-
-    await (
-        await contracts_by_role["governance_admin"]
-        .functions["register_security_admin"]
-        .invoke_v3(roles["security_admin"].address, auto_estimate=True)
-    ).wait_for_acceptance()
-
-    await (
-        await contracts_by_role["app_role_admin"]
-        .functions["register_app_governor"]
-        .invoke_v3(roles["app_governor"].address, auto_estimate=True)
-    ).wait_for_acceptance()
-
-    await (
-        await contracts_by_role["app_role_admin"]
-        .functions["register_operator"]
-        .invoke_v3(roles["operator"].address, auto_estimate=True)
-    ).wait_for_acceptance()
-
-    await (
-        await contracts_by_role["app_role_admin"]
-        .functions["register_token_admin"]
-        .invoke_v3(roles["token_admin"].address, auto_estimate=True)
-    ).wait_for_acceptance()
+    for role_name in ["app_governor", "operator", "token_admin"]:
+        await (
+            await contracts_by_role["app_role_admin"]
+            .functions[f"register_{role_name}"]
+            .invoke_v3(roles[role_name].address, auto_estimate=True)
+        ).wait_for_acceptance()
 
     await (
         await contracts_by_role["security_admin"]

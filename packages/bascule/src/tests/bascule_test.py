@@ -1,5 +1,4 @@
 import pytest
-from starknet_py.contract import Contract
 
 
 @pytest.mark.asyncio
