@@ -28,7 +28,7 @@ pub mod consortium {
     use starkware_utils::components::roles::RolesComponent::InternalTrait as RolesInternal;
 
     const MIN_VALIDATOR_SET_SIZE: u32 = 1;
-    const MAX_VALIDATOR_SET_SIZE: u32 = 102;
+    const MAX_VALIDATOR_SET_SIZE: u32 = 20;
 
     component!(path: AccessControlComponent, storage: accesscontrol, event: AccessControlEvent);
     component!(path: ReplaceabilityComponent, storage: replaceability, event: ReplaceabilityEvent);
