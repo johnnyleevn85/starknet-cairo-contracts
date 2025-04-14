@@ -2,7 +2,6 @@
 pub mod consortium {
     use alexandria_sorting::MergeSort;
     use core::num::traits::Zero;
-    use core::panic_with_felt252;
     use lbtc_consortium::errors::{
         DUPLICATED_PUBLIC_KEY, INVALID_EPOCH, INVALID_SIGNATURE, INVALID_VALIDATOR_SET_SIZE,
         INVALID_ZERO_WEIGHT, INVALID_ZERO_WEIGHT_THRESHOLD, NOT_ENOUGH_SIGNATURES,
@@ -10,15 +9,15 @@ pub mod consortium {
         VALIDATORS_WEIGHTS_LEN_MISMATCH, VALIDATORS_WERE_NOT_INITIALIZED,
     };
     use lbtc_consortium::events::ValidatorSetUpdated;
-    use lbtc_consortium::interface::IConsortium;
-    use lbtc_consortium::utils::deprecated_calculate_hash_for_next_validators;
+    use lbtc_consortium::interface::{IConsortium, Signature};
+    use lbtc_consortium::utils::{
+        deprecated_calculate_hash_for_next_validators, is_signature_by_signer,
+    };
     use openzeppelin::access::accesscontrol::AccessControlComponent;
     use openzeppelin::introspection::src5::SRC5Component;
     use starknet::ContractAddress;
     use starknet::eth_address::EthAddress;
-    use starknet::eth_signature::public_key_point_to_eth_address;
-    use starknet::secp256_trait::{Signature, recover_public_key};
-    use starknet::secp256k1::Secp256k1Point;
+    use starknet::secp256_trait::Signature as Secp256Signature;
     use starknet::storage::{
         Map, MutableVecTrait, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
         Vec, VecTrait,
@@ -126,15 +125,15 @@ pub mod consortium {
                     validators: @validators, weights: @weights, :threshold_weight,
                 );
 
-            let payload_hash = deprecated_calculate_hash_for_next_validators(
+            let msg_hash = deprecated_calculate_hash_for_next_validators(
                 :epoch, validators: @validators, weights: @weights, :threshold_weight, :height,
             );
-            self.check_proof(:payload_hash, :proof);
+            self.check_proof(:msg_hash, :proof);
 
             self._set_validator_set(:epoch, :validators, :weights, :threshold_weight);
         }
 
-        fn check_proof(self: @ContractState, payload_hash: u256, proof: Array<Signature>) {
+        fn check_proof(self: @ContractState, msg_hash: u256, proof: Array<Signature>) {
             let epoch = self.get_current_epoch();
             assert(epoch.is_non_zero(), VALIDATORS_WERE_NOT_INITIALIZED);
 
@@ -147,17 +146,25 @@ pub mod consortium {
             let mut i = 0;
             for signature in proof {
                 // Check signature.
-                if signature.r == 0 && signature.s == 0 {
+                let (r, s) = signature;
+                if r == 0 && s == 0 {
                     continue;
                 }
-                let pk = recover_public_key::<Secp256k1Point>(msg_hash: payload_hash, :signature);
-                match pk {
-                    Option::Some(pk) => {
-                        let address = public_key_point_to_eth_address(public_key_point: pk);
-                        let validator = validator_set.validators[i].read();
-                        assert(address == validator, INVALID_SIGNATURE);
-                    },
-                    Option::None => { panic_with_felt252(INVALID_SIGNATURE); },
+                let validator = validator_set.validators[i].read();
+                let signature_y_parity_true = Secp256Signature { r, s, y_parity: true };
+                let is_signed_by_validator = is_signature_by_signer(
+                    signer: validator, :msg_hash, signature: signature_y_parity_true,
+                );
+                // In case the signature with y parity true doesnt belong to the validator, check
+                // signature with y parity false.
+                if !is_signed_by_validator {
+                    let signature_y_parity_false = Secp256Signature { r, s, y_parity: false };
+                    assert(
+                        is_signature_by_signer(
+                            signer: validator, :msg_hash, signature: signature_y_parity_false,
+                        ),
+                        INVALID_SIGNATURE,
+                    );
                 }
 
                 let weight = validator_set.weights[i].read();

@@ -1,5 +1,6 @@
 use starknet::eth_address::EthAddress;
-use starknet::secp256_trait::Signature;
+
+pub type Signature = (u256, u256);
 
 #[starknet::interface]
 pub trait IConsortium<TContractState> {
@@ -18,7 +19,7 @@ pub trait IConsortium<TContractState> {
         height: u128,
         proof: Array<Signature>,
     );
-    fn check_proof(self: @TContractState, payload_hash: u256, proof: Array<Signature>);
+    fn check_proof(self: @TContractState, msg_hash: u256, proof: Array<Signature>);
     fn get_validator_set(
         self: @TContractState, epoch: u64,
     ) -> (Array<EthAddress>, Array<u128>, u128);

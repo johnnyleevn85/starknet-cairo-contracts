@@ -5,8 +5,19 @@ use lbtc_consortium::errors::INVALID_PUBLIC_KEY;
 use starknet::SyscallResultTrait;
 use starknet::eth_address::EthAddress;
 use starknet::eth_signature::public_key_point_to_eth_address;
-use starknet::secp256_trait::Secp256Trait;
+use starknet::secp256_trait::{Secp256Trait, Signature, recover_public_key};
 use starknet::secp256k1::Secp256k1Point;
+
+pub fn is_signature_by_signer(signer: EthAddress, msg_hash: u256, signature: Signature) -> bool {
+    if let Option::Some(public_key_point) =
+        recover_public_key::<Secp256k1Point>(:msg_hash, :signature) {
+        let address = public_key_point_to_eth_address(:public_key_point);
+        if (address == signer) {
+            return true;
+        }
+    }
+    false
+}
 
 // TODO(Mohammad): remove deprecated calculation.
 /// Calculates the SHA-256 hash of the `set_next_validator_set` payload for the consortium.
