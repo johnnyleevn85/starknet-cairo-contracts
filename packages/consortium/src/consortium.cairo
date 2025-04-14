@@ -11,7 +11,7 @@ pub mod consortium {
     };
     use lbtc_consortium::events::ValidatorSetUpdated;
     use lbtc_consortium::interface::IConsortium;
-    use lbtc_consortium::utils::calculate_hash_for_next_validators;
+    use lbtc_consortium::utils::deprecated_calculate_hash_for_next_validators;
     use openzeppelin::access::accesscontrol::AccessControlComponent;
     use openzeppelin::introspection::src5::SRC5Component;
     use starknet::ContractAddress;
@@ -139,7 +139,7 @@ pub mod consortium {
                     validators: @validators, weights: @weights, :threshold_weight,
                 );
 
-            let payload_hash = calculate_hash_for_next_validators(
+            let payload_hash = deprecated_calculate_hash_for_next_validators(
                 :epoch, validators: @validators, weights: @weights, :threshold_weight, :height,
             );
             self.check_proof(:payload_hash, :proof);
