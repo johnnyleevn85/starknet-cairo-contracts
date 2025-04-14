@@ -23,8 +23,6 @@ pub mod consortium {
         Map, MutableVecTrait, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
         Vec, VecTrait,
     };
-    use starkware_utils::components::pausable::PausableComponent;
-    use starkware_utils::components::pausable::PausableComponent::InternalTrait as PausableInternal;
     use starkware_utils::components::replaceability::ReplaceabilityComponent;
     use starkware_utils::components::replaceability::ReplaceabilityComponent::InternalReplaceabilityTrait;
     use starkware_utils::components::roles::RolesComponent;
@@ -34,7 +32,6 @@ pub mod consortium {
     const MAX_VALIDATOR_SET_SIZE: u32 = 102;
 
     component!(path: AccessControlComponent, storage: accesscontrol, event: AccessControlEvent);
-    component!(path: PausableComponent, storage: pausable, event: PausableEvent);
     component!(path: ReplaceabilityComponent, storage: replaceability, event: ReplaceabilityEvent);
     component!(path: RolesComponent, storage: roles, event: RolesEvent);
     component!(path: SRC5Component, storage: src5, event: SRC5Event);
@@ -45,9 +42,6 @@ pub mod consortium {
 
     #[abi(embed_v0)]
     impl RolesImpl = RolesComponent::RolesImpl<ContractState>;
-
-    #[abi(embed_v0)]
-    impl PausableImpl = PausableComponent::PausableImpl<ContractState>;
 
     #[starknet::storage_node]
     pub struct ValidatorSet {
@@ -66,8 +60,6 @@ pub mod consortium {
         #[substorage(v0)]
         accesscontrol: AccessControlComponent::Storage,
         #[substorage(v0)]
-        pausable: PausableComponent::Storage,
-        #[substorage(v0)]
         pub replaceability: ReplaceabilityComponent::Storage,
         #[substorage(v0)]
         pub roles: RolesComponent::Storage,
@@ -80,8 +72,6 @@ pub mod consortium {
     pub enum Event {
         #[flat]
         AccessControlEvent: AccessControlComponent::Event,
-        #[flat]
-        PausableEvent: PausableComponent::Event,
         #[flat]
         ReplaceabilityEvent: ReplaceabilityComponent::Event,
         #[flat]
@@ -107,7 +97,6 @@ pub mod consortium {
             weights: Array<u128>,
             threshold_weight: u128,
         ) {
-            self.pausable.assert_not_paused();
             self.roles.only_app_governor();
 
             // Validations.
@@ -129,8 +118,6 @@ pub mod consortium {
             height: u128,
             proof: Array<Signature>,
         ) {
-            self.pausable.assert_not_paused();
-
             // Validations.
             let cur_epoch = self.epoch.read();
             assert(cur_epoch + 1 == epoch, INVALID_EPOCH);
