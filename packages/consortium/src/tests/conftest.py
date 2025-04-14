@@ -2,7 +2,7 @@ from starknet_py.proxy.contract_abi_resolver import ContractAbiResolver, ProxyCo
 
 import pytest_asyncio
 from starknet_py.contract import Contract
-from starknet_net_test_util import StarknetTestUtils, load_contract
+from starknet_net_test_util import StarknetTestUtils, load_contract, grant_roles
 
 LBTC_CONSORTIUM = "lbtc_consortium_consortium"
 ROLE_NAMES = [
@@ -59,25 +59,7 @@ async def consortium_test_context(starknet_test_utils: StarknetTestUtils) -> dic
     }
 
     # Grant roles
-    for role_name in ["app_role_admin", "upgrade_governor", "security_admin"]:
-        await (
-            await contracts_by_role["governance_admin"]
-            .functions[f"register_{role_name}"]
-            .invoke_v3(roles[role_name].address, auto_estimate=True)
-        ).wait_for_acceptance()
-
-    for role_name in ["app_governor", "operator", "token_admin"]:
-        await (
-            await contracts_by_role["app_role_admin"]
-            .functions[f"register_{role_name}"]
-            .invoke_v3(roles[role_name].address, auto_estimate=True)
-        ).wait_for_acceptance()
-
-    await (
-        await contracts_by_role["security_admin"]
-        .functions["register_security_agent"]
-        .invoke_v3(roles["security_agent"].address, auto_estimate=True)
-    ).wait_for_acceptance()
+    await grant_roles(contracts_by_role=contracts_by_role, roles=roles)
 
     return {
         "contract": contract,

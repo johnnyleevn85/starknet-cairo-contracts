@@ -10,6 +10,7 @@ from starknet_py.net.models.chains import StarknetChainId
 from starknet_py.net.signer.key_pair import KeyPair
 from starknet_py.net.signer.stark_curve_signer import StarkCurveSigner
 import requests
+from starknet_py.contract import Contract
 
 
 from pathlib import Path
@@ -167,3 +168,25 @@ class Starknet:
         if len(stderr_data) > 0:
             logger.error(f"Starknet stderr data:\n{str(stderr_data)}\n")
         self.err_stream.close()
+
+
+async def grant_roles(contracts_by_role: dict[str, Contract], roles: dict[str, Account]):
+    for role_name in ["app_role_admin", "upgrade_governor", "security_admin"]:
+        await (
+            await contracts_by_role["governance_admin"]
+            .functions[f"register_{role_name}"]
+            .invoke_v3(roles[role_name].address, auto_estimate=True)
+        ).wait_for_acceptance()
+
+    for role_name in ["app_governor", "operator", "token_admin"]:
+        await (
+            await contracts_by_role["app_role_admin"]
+            .functions[f"register_{role_name}"]
+            .invoke_v3(roles[role_name].address, auto_estimate=True)
+        ).wait_for_acceptance()
+
+    await (
+        await contracts_by_role["security_admin"]
+        .functions["register_security_agent"]
+        .invoke_v3(roles["security_agent"].address, auto_estimate=True)
+    ).wait_for_acceptance()
