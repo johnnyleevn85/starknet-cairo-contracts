@@ -1,7 +1,12 @@
 use alexandria_bytes::BytesTrait;
 use core::num::traits::Pow;
 use core::sha256::compute_sha256_u32_array;
+use lbtc_consortium::errors::INVALID_PUBLIC_KEY;
+use starknet::SyscallResultTrait;
 use starknet::eth_address::EthAddress;
+use starknet::eth_signature::public_key_point_to_eth_address;
+use starknet::secp256_trait::Secp256Trait;
+use starknet::secp256k1::Secp256k1Point;
 
 // TODO(Mohammad): remove deprecated calculation.
 /// Calculates the SHA-256 hash of the `set_next_validator_set` payload for the consortium.
@@ -62,7 +67,6 @@ pub fn deprecated_calculate_hash_for_next_validators(
 
 
 const SHOULD_FIT_IN_U32: felt252 = 'SHOULD_FIT_IN_U32';
-
 /// Public Functions.
 
 /// Calculates the SHA-256 hash of the `set_next_validator_set` payload for the consortium.
@@ -234,3 +238,16 @@ fn compute_sha256(arr: Array<u32>) -> u256 {
     value
 }
 
+fn generate_eth_addresses_from_pks(public_keys: @Array<(u256, u256)>) -> Array<EthAddress> {
+    let mut eth_addresses: Array<EthAddress> = array![];
+    for pk in public_keys {
+        let (x, y) = *pk;
+        let secp_point = Secp256Trait::<Secp256k1Point>::secp256_ec_new_syscall(x, y)
+            .unwrap_syscall()
+            .expect(INVALID_PUBLIC_KEY);
+        let eth_address = public_key_point_to_eth_address(secp_point);
+        eth_addresses.append(eth_address);
+    }
+
+    eth_addresses
+}
