@@ -1,7 +1,7 @@
 #[starknet::contract]
 pub mod bridge {
     use core::num::traits::Zero;
-    use lbtc_bridge::interface::IBridge;
+    use lbtc_bridge::interface::{IBridge, Proof};
     use lbtc_bridge::{errors, events};
     use openzeppelin::access::accesscontrol::AccessControlComponent;
     use openzeppelin::introspection::src5::SRC5Component;
@@ -108,6 +108,38 @@ pub mod bridge {
 
         fn get_burn_commission(self: @ContractState) -> u64 {
             self.burn_commission.read()
+        }
+
+        fn toggle_withdrawals(ref self: ContractState) {}
+        fn set_mint_fee(ref self: ContractState, fee: u128) {}
+        fn change_dust_fee_rate(ref self: ContractState, new_rate: u128) {}
+        fn mint(
+            ref self: ContractState,
+            to_chain: u128,
+            recipient: ContractAddress,
+            amount: u128,
+            tx_id: u256,
+            vout: u32,
+            proof: Proof,
+        ) {}
+        fn redeem(ref self: ContractState, script_public_key: Span<felt252>, amount: u128) {}
+
+        // Getters:
+        fn get_mint_fee(self: @ContractState) -> u128 {
+            Default::default()
+        }
+        fn calc_unstake_request_amount(
+            self: @ContractState, script_public_key: Span<felt252>, amount: u128,
+        ) -> (u128, bool) {
+            Default::default()
+        }
+        fn get_dust_fee_rate(self: @ContractState) -> u128 {
+            Default::default()
+        }
+        fn is_payload_used(
+            self: @ContractState, payload_hash: u256, legacy_used_payload_hash: u256,
+        ) -> bool {
+            Default::default()
         }
     }
 
