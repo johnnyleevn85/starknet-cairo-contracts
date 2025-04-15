@@ -44,10 +44,8 @@ pub mod consortium {
 
     #[starknet::storage_node]
     pub struct ValidatorSet {
-        // Addresses of the signers.
-        pub validators: Vec<EthAddress>,
-        // Weight of each signer.
-        pub weights: Vec<u128>,
+        // Address weight tuples.
+        pub validators: Vec<(EthAddress, u128)>,
         // Current threshold for signatures weight to be accepted.
         pub threshold_weight: u128,
     }
@@ -150,7 +148,7 @@ pub mod consortium {
                 if r == 0 && s == 0 {
                     continue;
                 }
-                let validator = validator_set.validators[i].read();
+                let (validator, weight) = validator_set.validators[i].read();
                 let signature_y_parity_true = Secp256Signature { r, s, y_parity: true };
                 let is_signed_by_validator = is_signature_by_signer(
                     signer: validator, :msg_hash, signature: signature_y_parity_true,
@@ -167,7 +165,6 @@ pub mod consortium {
                     );
                 }
 
-                let weight = validator_set.weights[i].read();
                 total_weight += weight;
                 i += 1;
             }
@@ -186,8 +183,7 @@ pub mod consortium {
             let mut validators = array![];
             let mut weights = array![];
             for i in 0..validator_set.validators.len() {
-                let validator = validator_set.validators[i].read();
-                let weight = validator_set.weights[i].read();
+                let (validator, weight) = validator_set.validators[i].read();
                 validators.append(validator);
                 weights.append(weight);
             }
@@ -232,8 +228,7 @@ pub mod consortium {
                 assert(weight.is_non_zero(), INVALID_ZERO_WEIGHT);
 
                 let validator = *validators[i];
-                validator_set.validators.push(validator);
-                validator_set.weights.push(weight);
+                validator_set.validators.push((validator, weight));
 
                 total_weight = total_weight + weight;
             }
