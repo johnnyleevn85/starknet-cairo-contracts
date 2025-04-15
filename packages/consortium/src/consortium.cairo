@@ -1,17 +1,17 @@
 #[starknet::contract]
 pub mod consortium {
-    use alexandria_sorting::MergeSort;
+    use core::dict::Felt252Dict;
     use core::num::traits::Zero;
     use lbtc_consortium::errors::{
-        DUPLICATED_PUBLIC_KEY, INVALID_EPOCH, INVALID_SIGNATURE, INVALID_VALIDATOR_SET_SIZE,
-        INVALID_ZERO_WEIGHT, INVALID_ZERO_WEIGHT_THRESHOLD, NOT_ENOUGH_SIGNATURES,
-        TOTAL_WEIGHT_UNDER_THRESHOLD, VALIDATORS_ALREADY_INITIALIZED, VALIDATORS_PROOF_LEN_MISMATCH,
+        INVALID_EPOCH, INVALID_SIGNATURE, INVALID_VALIDATOR_SET_SIZE, INVALID_ZERO_WEIGHT,
+        INVALID_ZERO_WEIGHT_THRESHOLD, NOT_ENOUGH_SIGNATURES, TOTAL_WEIGHT_UNDER_THRESHOLD,
+        VALIDATORS_ALREADY_INITIALIZED, VALIDATORS_PROOF_LEN_MISMATCH,
         VALIDATORS_WEIGHTS_LEN_MISMATCH, VALIDATORS_WERE_NOT_INITIALIZED,
     };
     use lbtc_consortium::events::ValidatorSetUpdated;
     use lbtc_consortium::interface::{IConsortium, Signature};
     use lbtc_consortium::utils::{
-        deprecated_calculate_hash_for_next_validators, is_signature_by_signer,
+        deprecated_calculate_hash_for_next_validators, ensure_uniqueness, is_signature_by_signer,
     };
     use openzeppelin::access::accesscontrol::AccessControlComponent;
     use openzeppelin::introspection::src5::SRC5Component;
@@ -210,8 +210,6 @@ pub mod consortium {
             let validator_set_size = validators.len();
             assert(validator_set_size >= MIN_VALIDATOR_SET_SIZE, INVALID_VALIDATOR_SET_SIZE);
             assert(validator_set_size <= MAX_VALIDATOR_SET_SIZE, INVALID_VALIDATOR_SET_SIZE);
-
-            _check_uniqness(arr: validators);
         }
 
         fn _set_validator_set(
@@ -223,11 +221,13 @@ pub mod consortium {
         ) {
             let mut validator_set = self.validator_set_map.entry(epoch);
             let mut total_weight = 0;
+            let mut address_dict: Felt252Dict<bool> = Default::default();
             for i in 0..validators.len() {
                 let weight = *weights[i];
                 assert(weight.is_non_zero(), INVALID_ZERO_WEIGHT);
 
                 let validator = *validators[i];
+                ensure_uniqueness(ref :address_dict, eth_address: validator);
                 validator_set.validators.push((validator, weight));
 
                 total_weight = total_weight + weight;
@@ -242,23 +242,6 @@ pub mod consortium {
                 .emit(
                     ValidatorSetUpdated { epoch, validators, weights, threshold: threshold_weight },
                 );
-        }
-    }
-
-    // TODO(Mohammad): move it to starkware_utils repo.
-    fn _check_uniqness(arr: @Array<EthAddress>) {
-        // As `felt252` does not implement `PartialOrd`.
-        let mut arr_u256: Array<u256> = array![];
-        for e in arr {
-            let e_felt252: felt252 = (*e).into();
-            arr_u256.append(e_felt252.into());
-        }
-
-        let sorted_arr_u256 = MergeSort::sort(arr_u256.span());
-        let mut prev_v: u256 = Zero::zero();
-        for v in sorted_arr_u256 {
-            assert(v != prev_v, DUPLICATED_PUBLIC_KEY);
-            prev_v = v;
         }
     }
 }

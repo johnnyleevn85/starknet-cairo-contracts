@@ -1,7 +1,8 @@
 use alexandria_bytes::BytesTrait;
+use core::dict::Felt252Dict;
 use core::num::traits::Pow;
 use core::sha256::compute_sha256_u32_array;
-use lbtc_consortium::errors::INVALID_PUBLIC_KEY;
+use lbtc_consortium::errors::{DUPLICATED_PUBLIC_KEY, INVALID_PUBLIC_KEY};
 use starknet::SyscallResultTrait;
 use starknet::eth_address::EthAddress;
 use starknet::eth_signature::public_key_point_to_eth_address;
@@ -249,7 +250,7 @@ fn compute_sha256(arr: Array<u32>) -> u256 {
     value
 }
 
-fn generate_eth_addresses_from_pks(public_keys: @Array<(u256, u256)>) -> Array<EthAddress> {
+pub fn generate_eth_addresses_from_pks(public_keys: @Array<(u256, u256)>) -> Array<EthAddress> {
     let mut eth_addresses: Array<EthAddress> = array![];
     for pk in public_keys {
         let (x, y) = *pk;
@@ -261,4 +262,12 @@ fn generate_eth_addresses_from_pks(public_keys: @Array<(u256, u256)>) -> Array<E
     }
 
     eth_addresses
+}
+
+pub fn ensure_uniqueness(ref address_dict: Felt252Dict<bool>, eth_address: EthAddress) {
+    let address_felt252 = eth_address.into();
+    let is_address_exist = address_dict.get(address_felt252);
+    // Validate no duplication.
+    assert(!is_address_exist, DUPLICATED_PUBLIC_KEY);
+    address_dict.insert(address_felt252, true);
 }

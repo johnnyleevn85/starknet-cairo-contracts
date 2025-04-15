@@ -24,15 +24,6 @@ source = "registry+https://scarbs.xyz/"
 checksum = "sha256:cfa321a7258aa4ff659d962755833e69ad11330799ad426252c76d1e2b25c95c"
 
 [[package]]
-name = "alexandria_sorting"
-version = "0.5.0"
-source = "registry+https://scarbs.xyz/"
-checksum = "sha256:be772b56d264a8c90aef918ade1724830cc1300ff2925eb566c073381a93f78c"
-dependencies = [
- "alexandria_data_structures",
-]
-
-[[package]]
 name = "lbtc_bascule"
 version = "0.1.0"
 dependencies = [
@@ -59,7 +50,6 @@ name = "lbtc_consortium"
 version = "0.1.0"
 dependencies = [
  "alexandria_bytes",
- "alexandria_sorting",
  "openzeppelin",
  "openzeppelin_testing",
  "snforge_std",
