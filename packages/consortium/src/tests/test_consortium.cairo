@@ -145,7 +145,7 @@ fn test_successful_check_proof() {
         );
 
     // Test:
-    dispatcher.check_proof(:msg_hash, proof: array![signature]);
+    dispatcher.check_proof(:msg_hash, proof: array![signature].span());
     // Test passes if `check_proof` did not panic.
 }
 

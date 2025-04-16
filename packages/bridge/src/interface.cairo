@@ -1,6 +1,5 @@
+use lbtc_consortium::interface::Signature;
 use starknet::ContractAddress;
-
-pub type Proof = Span<(u256, u256)>;
 
 #[starknet::interface]
 pub trait IBridge<TContractState> {
@@ -17,7 +16,7 @@ pub trait IBridge<TContractState> {
         amount: u128,
         tx_id: u256,
         vout: u32,
-        proof: Proof,
+        proof: Span<Signature>,
     );
     fn redeem(ref self: TContractState, script_public_key: Span<felt252>, amount: u128);
 

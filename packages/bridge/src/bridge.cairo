@@ -2,9 +2,9 @@
 pub mod bridge {
     use core::num::traits::Zero;
     use lbtc_bascule::interface::{IBasculeDispatcher, IBasculeDispatcherTrait};
-    use lbtc_bridge::interface::{IBridge, Proof};
+    use lbtc_bridge::interface::IBridge;
     use lbtc_bridge::{errors, events};
-    use lbtc_consortium::interface::{IConsortiumDispatcher, IConsortiumDispatcherTrait};
+    use lbtc_consortium::interface::{IConsortiumDispatcher, IConsortiumDispatcherTrait, Signature};
     use openzeppelin::access::accesscontrol::AccessControlComponent;
     use openzeppelin::introspection::src5::SRC5Component;
     use starknet::ContractAddress;
@@ -102,7 +102,7 @@ pub mod bridge {
             amount: u128,
             tx_id: u256,
             vout: u32,
-            proof: Proof,
+            proof: Span<Signature>,
         ) {}
 
         // TODO: Implement

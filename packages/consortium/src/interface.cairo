@@ -18,9 +18,9 @@ pub trait IConsortium<TContractState> {
         weights: Array<u128>,
         threshold_weight: u128,
         height: u128,
-        proof: Array<Signature>,
+        proof: Span<Signature>,
     );
-    fn check_proof(self: @TContractState, msg_hash: u256, proof: Array<Signature>);
+    fn check_proof(self: @TContractState, msg_hash: u256, proof: Span<Signature>);
     fn get_validator_set(
         self: @TContractState, epoch: u64,
     ) -> (Array<EthAddress>, Array<u128>, u128);

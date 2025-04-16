@@ -116,7 +116,7 @@ pub mod consortium {
             weights: Array<u128>,
             threshold_weight: u128,
             height: u128,
-            proof: Array<Signature>,
+            proof: Span<Signature>,
         ) {
             // Validations.
             let cur_epoch = self.epoch.read();
@@ -134,7 +134,7 @@ pub mod consortium {
             self._set_validator_set(:epoch, :validators, :weights, :threshold_weight);
         }
 
-        fn check_proof(self: @ContractState, msg_hash: u256, proof: Array<Signature>) {
+        fn check_proof(self: @ContractState, msg_hash: u256, proof: Span<Signature>) {
             let epoch = self.get_current_epoch();
             assert(epoch.is_non_zero(), VALIDATORS_WERE_NOT_INITIALIZED);
 
@@ -147,7 +147,7 @@ pub mod consortium {
             let mut i = 0;
             for signature in proof {
                 // Check signature.
-                let (r, s) = signature;
+                let (r, s) = *signature;
                 if r == 0 && s == 0 {
                     continue;
                 }
