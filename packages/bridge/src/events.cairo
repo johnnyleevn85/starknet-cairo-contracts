@@ -17,3 +17,15 @@ pub struct BurnCommissionChanged {
     pub old_burn_commission: u64,
     pub new_burn_commission: u64,
 }
+
+#[derive(Debug, Drop, PartialEq, starknet::Event)]
+pub struct BasculeChanged {
+    pub old_bascule: ContractAddress,
+    pub new_bascule: ContractAddress,
+}
+
+#[derive(Debug, Drop, PartialEq, starknet::Event)]
+pub struct WithdrawalsEnabled {
+    pub is_withdrawals_enabled: bool,
+}
+

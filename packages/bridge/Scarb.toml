@@ -19,6 +19,8 @@ scarb.workspace = true
 starknet.workspace = true
 openzeppelin.workspace = true
 starkware_utils.workspace = true
+lbtc_consortium = {path = "../consortium" }
+lbtc_bascule = {path = "../bascule" }
 
 [dev-dependencies]
 assert_macros.workspace = true

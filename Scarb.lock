@@ -16,6 +16,8 @@ dependencies = [
 name = "lbtc_bridge"
 version = "0.1.0"
 dependencies = [
+ "lbtc_bascule",
+ "lbtc_consortium",
  "openzeppelin",
  "openzeppelin_testing",
  "snforge_std",

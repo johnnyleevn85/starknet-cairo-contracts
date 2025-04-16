@@ -4,6 +4,7 @@ pub type Proof = Span<(u256, u256)>;
 
 #[starknet::interface]
 pub trait IBridge<TContractState> {
+    fn change_bascule(ref self: TContractState, new_bascule: ContractAddress);
     fn change_consortium(ref self: TContractState, new_consortium: ContractAddress);
     fn get_consortium(self: @TContractState) -> ContractAddress;
     fn change_treasury(ref self: TContractState, new_treasury: ContractAddress);
