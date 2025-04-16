@@ -93,18 +93,15 @@ pub mod consortium {
     pub impl ConsortiumImpl of IConsortium<ContractState> {
         fn set_initial_validator_set(
             ref self: ContractState,
-            validators: Array<PublicKey>,
-            weights: Array<u128>,
+            validators: Span<PublicKey>,
+            weights: Span<u128>,
             threshold_weight: u128,
         ) {
             self.roles.only_app_governor();
 
             // Validations.
             assert(self.epoch.read().is_zero(), VALIDATORS_ALREADY_INITIALIZED);
-            self
-                ._validate_new_validator_set(
-                    validators: @validators, weights: @weights, :threshold_weight,
-                );
+            self._validate_new_validator_set(:validators, :weights, :threshold_weight);
 
             self._set_validator_set(epoch: 1, :validators, :weights, :threshold_weight);
         }
@@ -112,8 +109,8 @@ pub mod consortium {
         fn set_next_validator_set(
             ref self: ContractState,
             epoch: u64,
-            validators: Array<PublicKey>,
-            weights: Array<u128>,
+            validators: Span<PublicKey>,
+            weights: Span<u128>,
             threshold_weight: u128,
             height: u128,
             proof: Span<Signature>,
@@ -121,13 +118,10 @@ pub mod consortium {
             // Validations.
             let cur_epoch = self.epoch.read();
             assert(cur_epoch + 1 == epoch, INVALID_EPOCH);
-            self
-                ._validate_new_validator_set(
-                    validators: @validators, weights: @weights, :threshold_weight,
-                );
+            self._validate_new_validator_set(:validators, :weights, :threshold_weight);
 
             let msg_hash = calculate_sha256_for_set_next_validator_set_paylod(
-                :epoch, public_keys: @validators, weights: @weights, :threshold_weight, :height,
+                :epoch, public_keys: validators, :weights, :threshold_weight, :height,
             );
             self.check_proof(:msg_hash, :proof);
 
@@ -178,7 +172,7 @@ pub mod consortium {
 
         fn get_validator_set(
             self: @ContractState, epoch: u64,
-        ) -> (Array<EthAddress>, Array<u128>, u128) {
+        ) -> (Span<EthAddress>, Span<u128>, u128) {
             let validator_set = self.validator_set_map.entry(epoch);
             let threshold_weight = validator_set.threshold_weight.read();
             assert(threshold_weight.is_non_zero(), INVALID_EPOCH);
@@ -191,7 +185,7 @@ pub mod consortium {
                 weights.append(weight);
             }
 
-            (validators, weights, threshold_weight)
+            (validators.span(), weights.span(), threshold_weight)
         }
 
         fn get_current_epoch(self: @ContractState) -> u64 {
@@ -203,8 +197,8 @@ pub mod consortium {
     impl ConsortiumPrivateImpl of ConsortiumPrivateTrait {
         fn _validate_new_validator_set(
             ref self: ContractState,
-            validators: @Array<PublicKey>,
-            weights: @Array<u128>,
+            validators: Span<PublicKey>,
+            weights: Span<u128>,
             threshold_weight: u128,
         ) {
             assert(threshold_weight.is_non_zero(), INVALID_ZERO_WEIGHT_THRESHOLD);
@@ -218,8 +212,8 @@ pub mod consortium {
         fn _set_validator_set(
             ref self: ContractState,
             epoch: u64,
-            validators: Array<PublicKey>,
-            weights: Array<u128>,
+            validators: Span<PublicKey>,
+            weights: Span<u128>,
             threshold_weight: u128,
         ) {
             let mut validator_set = self.validator_set_map.entry(epoch);
@@ -253,7 +247,10 @@ pub mod consortium {
             self
                 .emit(
                     ValidatorSetUpdated {
-                        epoch, validators: eth_addresses, weights, threshold: threshold_weight,
+                        epoch,
+                        validators: eth_addresses.span(),
+                        weights,
+                        threshold: threshold_weight,
                     },
                 );
         }

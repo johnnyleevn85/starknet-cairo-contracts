@@ -2,6 +2,7 @@ use core::dict::Felt252Dict;
 use core::num::traits::Pow;
 use core::sha256::compute_sha256_u32_array;
 use lbtc_consortium::errors::DUPLICATED_PUBLIC_KEY;
+use lbtc_consortium::interface::PublicKey;
 use starknet::eth_address::EthAddress;
 use starknet::eth_signature::public_key_point_to_eth_address;
 use starknet::secp256_trait::{Signature, recover_public_key};
@@ -27,8 +28,8 @@ const SHOULD_FIT_IN_U32: felt252 = 'SHOULD_FIT_IN_U32';
 /// weights, the threshold weight, and the height.
 pub fn calculate_sha256_for_set_next_validator_set_paylod(
     epoch: u64,
-    public_keys: @Array<(u256, u256)>,
-    weights: @Array<u128>,
+    public_keys: Span<PublicKey>,
+    weights: Span<u128>,
     threshold_weight: u128,
     height: u128,
 ) -> u256 {
@@ -76,7 +77,7 @@ pub fn calculate_sha256_for_set_next_validator_set_paylod(
 
 /// Private Functions.
 
-fn append_pub_keys(ref arr: Array<u32>, public_keys: @Array<(u256, u256)>) {
+fn append_pub_keys(ref arr: Array<u32>, public_keys: Span<PublicKey>) {
     let public_keys_len = public_keys.len();
     let N_BYTES_256 = 32_u32;
 
@@ -117,7 +118,7 @@ fn append_pub_keys(ref arr: Array<u32>, public_keys: @Array<(u256, u256)>) {
     }
 }
 
-fn append_weights(ref arr: Array<u32>, values: @Array<u128>) {
+fn append_weights(ref arr: Array<u32>, values: Span<u128>) {
     append_u128_as_u256(ref arr, values.len().into());
     for value in values {
         append_u128_as_u256(ref arr, (*value).into());
