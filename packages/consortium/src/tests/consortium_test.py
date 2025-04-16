@@ -9,22 +9,19 @@ async def test_get_current_epoch(consortium_test_context: dict):
     (res,) = await user.functions["get_current_epoch"].call()
     assert res == 0
     app_governor = consortium_test_context["contracts_by_role"]["app_governor"]
-    # TODO(ROEEG)
-    # await (
-    #     await app_governor.functions["set_initial_validator_set"].invoke_v3(
-    #         [
-    #             {
-    #                 "public_key": (
-    #                     0x21A30C0BDAA3B425E17A062BFDF5B8ECAED4E2D3AB4B30B0774472D4621081D9,
-    #                     0x6A50131029F32EFFBE5D8BA0DA8C75760FF5ADD90C77EFCD48EEEBBF56094BD8,
-    #                 )
-    #             }
-    #         ],
-    #         [1],
-    #         1,
-    #         auto_estimate=True,
-    #     )
-    # ).wait_for_acceptance()
+    await (
+        await app_governor.functions["set_initial_validator_set"].invoke_v3(
+            validators=[
+                (
+                    0x6E145CCEF1033DEA239875DD00DFB4FEE6E3348B84985C92F103444683BAE07B,
+                    0x83B5C38E5E2B0C8529D7FA3F64D46DAA1ECE2D9AC14CAB9477D042C84C32CCD0,
+                )
+            ],
+            weights=[1],
+            threshold_weight=1,
+            auto_estimate=True,
+        )
+    ).wait_for_acceptance()
 
-    # (res,) = await user.functions["get_current_epoch"].call()
-    # assert res == 1
+    (res,) = await user.functions["get_current_epoch"].call()
+    assert res == 1
