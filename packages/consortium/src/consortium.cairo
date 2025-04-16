@@ -3,25 +3,28 @@ pub mod consortium {
     use core::dict::Felt252Dict;
     use core::num::traits::Zero;
     use lbtc_consortium::errors::{
-        INVALID_EPOCH, INVALID_SIGNATURE, INVALID_VALIDATOR_SET_SIZE, INVALID_ZERO_WEIGHT,
-        INVALID_ZERO_WEIGHT_THRESHOLD, NOT_ENOUGH_SIGNATURES, TOTAL_WEIGHT_UNDER_THRESHOLD,
-        VALIDATORS_ALREADY_INITIALIZED, VALIDATORS_PROOF_LEN_MISMATCH,
+        INVALID_EPOCH, INVALID_PUBLIC_KEY, INVALID_SIGNATURE, INVALID_VALIDATOR_SET_SIZE,
+        INVALID_ZERO_WEIGHT, INVALID_ZERO_WEIGHT_THRESHOLD, NOT_ENOUGH_SIGNATURES,
+        TOTAL_WEIGHT_UNDER_THRESHOLD, VALIDATORS_ALREADY_INITIALIZED, VALIDATORS_PROOF_LEN_MISMATCH,
         VALIDATORS_WEIGHTS_LEN_MISMATCH, VALIDATORS_WERE_NOT_INITIALIZED,
     };
     use lbtc_consortium::events::ValidatorSetUpdated;
-    use lbtc_consortium::interface::{IConsortium, Signature};
+    use lbtc_consortium::interface::{IConsortium, PublicKey, Signature};
     use lbtc_consortium::utils::{
-        deprecated_calculate_hash_for_next_validators, ensure_uniqueness, is_signature_by_signer,
+        calculate_sha256_for_set_next_validator_set_paylod, ensure_uniqueness,
+        is_signature_by_signer,
     };
     use openzeppelin::access::accesscontrol::AccessControlComponent;
     use openzeppelin::introspection::src5::SRC5Component;
-    use starknet::ContractAddress;
     use starknet::eth_address::EthAddress;
-    use starknet::secp256_trait::Signature as Secp256Signature;
+    use starknet::eth_signature::public_key_point_to_eth_address;
+    use starknet::secp256_trait::{Secp256Trait, Signature as Secp256Signature};
+    use starknet::secp256k1::Secp256k1Point;
     use starknet::storage::{
         Map, MutableVecTrait, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
         Vec, VecTrait,
     };
+    use starknet::{ContractAddress, SyscallResultTrait};
     use starkware_utils::components::replaceability::ReplaceabilityComponent;
     use starkware_utils::components::replaceability::ReplaceabilityComponent::InternalReplaceabilityTrait;
     use starkware_utils::components::roles::RolesComponent;
@@ -90,7 +93,7 @@ pub mod consortium {
     pub impl ConsortiumImpl of IConsortium<ContractState> {
         fn set_initial_validator_set(
             ref self: ContractState,
-            validators: Array<EthAddress>,
+            validators: Array<PublicKey>,
             weights: Array<u128>,
             threshold_weight: u128,
         ) {
@@ -109,7 +112,7 @@ pub mod consortium {
         fn set_next_validator_set(
             ref self: ContractState,
             epoch: u64,
-            validators: Array<EthAddress>,
+            validators: Array<PublicKey>,
             weights: Array<u128>,
             threshold_weight: u128,
             height: u128,
@@ -123,8 +126,8 @@ pub mod consortium {
                     validators: @validators, weights: @weights, :threshold_weight,
                 );
 
-            let msg_hash = deprecated_calculate_hash_for_next_validators(
-                :epoch, validators: @validators, weights: @weights, :threshold_weight, :height,
+            let msg_hash = calculate_sha256_for_set_next_validator_set_paylod(
+                :epoch, public_keys: @validators, weights: @weights, :threshold_weight, :height,
             );
             self.check_proof(:msg_hash, :proof);
 
@@ -200,7 +203,7 @@ pub mod consortium {
     impl ConsortiumPrivateImpl of ConsortiumPrivateTrait {
         fn _validate_new_validator_set(
             ref self: ContractState,
-            validators: @Array<EthAddress>,
+            validators: @Array<PublicKey>,
             weights: @Array<u128>,
             threshold_weight: u128,
         ) {
@@ -215,20 +218,29 @@ pub mod consortium {
         fn _set_validator_set(
             ref self: ContractState,
             epoch: u64,
-            validators: Array<EthAddress>,
+            validators: Array<PublicKey>,
             weights: Array<u128>,
             threshold_weight: u128,
         ) {
             let mut validator_set = self.validator_set_map.entry(epoch);
             let mut total_weight = 0;
+            let mut eth_addresses: Array<EthAddress> = Default::default();
             let mut address_dict: Felt252Dict<bool> = Default::default();
+
             for i in 0..validators.len() {
                 let weight = *weights[i];
                 assert(weight.is_non_zero(), INVALID_ZERO_WEIGHT);
 
-                let validator = *validators[i];
-                ensure_uniqueness(ref :address_dict, eth_address: validator);
-                validator_set.validators.push((validator, weight));
+                // Generate eth address from public key.
+                let (x, y) = *validators[i];
+                let secp_point = Secp256Trait::<Secp256k1Point>::secp256_ec_new_syscall(x, y)
+                    .unwrap_syscall()
+                    .expect(INVALID_PUBLIC_KEY);
+                let eth_address = public_key_point_to_eth_address(secp_point);
+
+                ensure_uniqueness(ref :address_dict, :eth_address);
+                eth_addresses.append(eth_address);
+                validator_set.validators.push((eth_address, weight));
 
                 total_weight = total_weight + weight;
             }
@@ -240,7 +252,9 @@ pub mod consortium {
             // Emit event.
             self
                 .emit(
-                    ValidatorSetUpdated { epoch, validators, weights, threshold: threshold_weight },
+                    ValidatorSetUpdated {
+                        epoch, validators: eth_addresses, weights, threshold: threshold_weight,
+                    },
                 );
         }
     }

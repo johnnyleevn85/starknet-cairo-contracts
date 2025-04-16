@@ -1,12 +1,10 @@
-use alexandria_bytes::BytesTrait;
 use core::dict::Felt252Dict;
 use core::num::traits::Pow;
 use core::sha256::compute_sha256_u32_array;
-use lbtc_consortium::errors::{DUPLICATED_PUBLIC_KEY, INVALID_PUBLIC_KEY};
-use starknet::SyscallResultTrait;
+use lbtc_consortium::errors::DUPLICATED_PUBLIC_KEY;
 use starknet::eth_address::EthAddress;
 use starknet::eth_signature::public_key_point_to_eth_address;
-use starknet::secp256_trait::{Secp256Trait, Signature, recover_public_key};
+use starknet::secp256_trait::{Signature, recover_public_key};
 use starknet::secp256k1::Secp256k1Point;
 
 pub fn is_signature_by_signer(signer: EthAddress, msg_hash: u256, signature: Signature) -> bool {
@@ -19,64 +17,6 @@ pub fn is_signature_by_signer(signer: EthAddress, msg_hash: u256, signature: Sig
     }
     false
 }
-
-// TODO(Mohammad): remove deprecated calculation.
-/// Calculates the SHA-256 hash of the `set_next_validator_set` payload for the consortium.
-///
-/// The payload includes the `NEW_VALSET` constant, the epoch, the list of validators, their
-/// weights, the threshold weight, and the height.
-#[feature("deprecated-sha256")]
-pub fn deprecated_calculate_hash_for_next_validators(
-    epoch: u64,
-    validators: @Array<EthAddress>,
-    weights: @Array<u128>,
-    threshold_weight: u128,
-    height: u128,
-) -> u256 {
-    // Constants.
-    // bytes4(keccak256("payload(uint256,bytes[],uint256[],uint256,uint256)")).
-    const NEW_VALSET: u32 = 0x4aab1d6f;
-    const N_BYTES_256: u32 = 32;
-    const N_NEXT_VALIDATOR_PAYLOAD_ARGS: u32 = 5;
-
-    let mut payload = BytesTrait::new_empty();
-
-    payload.append_u32(NEW_VALSET);
-
-    // Epoch.
-    payload.append_u256(epoch.into());
-
-    // Validators offset.
-    let validators_offset = N_NEXT_VALIDATOR_PAYLOAD_ARGS * N_BYTES_256;
-    payload.append_u256(validators_offset.into());
-
-    // Weights offset: 1 for validators' len.
-    let validators_len = validators.len();
-    let weights_offset = (N_NEXT_VALIDATOR_PAYLOAD_ARGS + 1 + validators_len) * N_BYTES_256;
-    payload.append_u256(weights_offset.into());
-
-    // Threshold weight.
-    payload.append_u256(threshold_weight.into());
-
-    // Height.
-    payload.append_u256(height.into());
-
-    // Validators length.
-    payload.append_u256(validators_len.into());
-    for validator in validators {
-        let validator_felt252: felt252 = (*validator).into();
-        payload.append_u256(validator_felt252.into());
-    }
-
-    // Weights length.
-    payload.append_u256(validators_len.into());
-    for weight in weights {
-        payload.append_u256((*weight).into());
-    }
-
-    payload.sha256()
-}
-
 
 const SHOULD_FIT_IN_U32: felt252 = 'SHOULD_FIT_IN_U32';
 /// Public Functions.
@@ -248,20 +188,6 @@ fn compute_sha256(arr: Array<u32>) -> u256 {
         value = value + (*word).into();
     }
     value
-}
-
-pub fn generate_eth_addresses_from_pks(public_keys: @Array<(u256, u256)>) -> Array<EthAddress> {
-    let mut eth_addresses: Array<EthAddress> = array![];
-    for pk in public_keys {
-        let (x, y) = *pk;
-        let secp_point = Secp256Trait::<Secp256k1Point>::secp256_ec_new_syscall(x, y)
-            .unwrap_syscall()
-            .expect(INVALID_PUBLIC_KEY);
-        let eth_address = public_key_point_to_eth_address(secp_point);
-        eth_addresses.append(eth_address);
-    }
-
-    eth_addresses
 }
 
 pub fn ensure_uniqueness(ref address_dict: Felt252Dict<bool>, eth_address: EthAddress) {

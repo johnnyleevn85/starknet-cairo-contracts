@@ -1,19 +1,20 @@
 use starknet::eth_address::EthAddress;
 
+pub type PublicKey = (u256, u256);
 pub type Signature = (u256, u256);
 
 #[starknet::interface]
 pub trait IConsortium<TContractState> {
     fn set_initial_validator_set(
         ref self: TContractState,
-        validators: Array<EthAddress>,
+        validators: Array<PublicKey>,
         weights: Array<u128>,
         threshold_weight: u128,
     );
     fn set_next_validator_set(
         ref self: TContractState,
         epoch: u64,
-        validators: Array<EthAddress>,
+        validators: Array<PublicKey>,
         weights: Array<u128>,
         threshold_weight: u128,
         height: u128,

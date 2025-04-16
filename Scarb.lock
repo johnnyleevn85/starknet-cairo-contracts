@@ -2,28 +2,6 @@
 version = 1
 
 [[package]]
-name = "alexandria_bytes"
-version = "0.5.0"
-source = "registry+https://scarbs.xyz/"
-checksum = "sha256:eacb9157ec4f76a4347000a38549d0254f1181620bef15e25f5aa8d838e98de9"
-dependencies = [
- "alexandria_data_structures",
- "alexandria_math",
-]
-
-[[package]]
-name = "alexandria_data_structures"
-version = "0.5.0"
-source = "registry+https://scarbs.xyz/"
-checksum = "sha256:ead928134d8ba7207a3523ab20d865a4d121a8a6a496e1628c438fb8b264d9dc"
-
-[[package]]
-name = "alexandria_math"
-version = "0.5.0"
-source = "registry+https://scarbs.xyz/"
-checksum = "sha256:cfa321a7258aa4ff659d962755833e69ad11330799ad426252c76d1e2b25c95c"
-
-[[package]]
 name = "lbtc_bascule"
 version = "0.1.0"
 dependencies = [
@@ -49,7 +27,6 @@ dependencies = [
 name = "lbtc_consortium"
 version = "0.1.0"
 dependencies = [
- "alexandria_bytes",
  "openzeppelin",
  "openzeppelin_testing",
  "snforge_std",
