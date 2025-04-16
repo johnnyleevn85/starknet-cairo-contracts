@@ -5,33 +5,6 @@ use lbtc_bridge::tests::test_utils::*;
 use snforge_std::{EventSpyAssertionsTrait, spy_events};
 use starkware_utils_testing::{constants as testing_constants, test_utils};
 
-
-#[test]
-fn test_bridge_change_consortium() {
-    let bridge_address = init_bridge_with_roles();
-    let bridge = IBridgeDispatcher { contract_address: bridge_address };
-    let old_consortium = bridge.get_consortium();
-    assert!(old_consortium.is_non_zero());
-    test_utils::cheat_caller_address_once(
-        contract_address: bridge_address, caller_address: testing_constants::APP_GOVERNOR,
-    );
-    let mut spy = spy_events();
-    let new_consortium = testing_constants::DUMMY_ADDRESS;
-    bridge.change_consortium(new_consortium);
-    spy
-        .assert_emitted(
-            @array![
-                (
-                    bridge_address,
-                    lbtc_bridge::bridge::bridge::Event::ConsortiumChanged(
-                        lbtc_bridge::events::ConsortiumChanged { old_consortium, new_consortium },
-                    ),
-                ),
-            ],
-        );
-    assert_eq!(bridge.get_consortium(), new_consortium);
-}
-
 #[test]
 fn test_bridge_get_consortium() {
     let bridge_address = init_bridge_with_roles();

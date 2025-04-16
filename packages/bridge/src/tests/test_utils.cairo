@@ -7,6 +7,7 @@ pub mod constants {
     use super::*;
 
     pub const UPGRADE_DELAY: u64 = 0;
+    pub const BASCULE: ContractAddress = 'BASCULE'.try_into().unwrap();
     pub const CONSORTIUM: ContractAddress = 'CONSORTIUM'.try_into().unwrap();
     pub const TREASURY: ContractAddress = 'TREASURY'.try_into().unwrap();
     pub const BURN_COMMISSION: u64 = 1;
@@ -16,6 +17,7 @@ fn deploy_bridge() -> ContractAddress {
     let mut calldata = array![];
     calldata.append_serde(testing_constants::GOVERNANCE_ADMIN);
     calldata.append_serde(constants::UPGRADE_DELAY);
+    calldata.append_serde(constants::BASCULE);
     calldata.append_serde(constants::CONSORTIUM);
     calldata.append_serde(constants::TREASURY);
     calldata.append_serde(constants::BURN_COMMISSION);
