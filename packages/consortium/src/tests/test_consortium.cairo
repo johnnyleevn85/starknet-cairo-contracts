@@ -1,6 +1,6 @@
 use lbtc_consortium::errors::{
     DUPLICATED_PUBLIC_KEY, INVALID_VALIDATOR_SET_SIZE, INVALID_ZERO_WEIGHT_THRESHOLD,
-    VALIDATORS_ALREADY_INITIALIZED, VALIDATORS_WEIGHTS_LEN_MISMATCH,
+    PUB_KEYS_WEIGHTS_LEN_MISMATCH, VALIDATORS_ALREADY_INITIALIZED,
 };
 use lbtc_consortium::interface::{
     IConsortiumDispatcher, IConsortiumDispatcherTrait, IConsortiumSafeDispatcher,
@@ -50,7 +50,7 @@ fn test_successful_initial_validator_set() {
 
     // Test:
     cheat_caller_address_once(:contract_address, caller_address: APP_GOVERNOR);
-    dispatcher.set_initial_validator_set(validators: public_keys, :weights, :threshold_weight);
+    dispatcher.set_initial_validator_set(:public_keys, :weights, :threshold_weight);
 
     // Check:
     assert_eq!(dispatcher.get_current_epoch(), 1);
@@ -91,46 +91,46 @@ fn test_illegal_initial_validator_set() {
     // Test:
     let result = dispatcher
         .set_initial_validator_set(
-            validators: array![].span(), weights: array![].span(), :threshold_weight,
+            public_keys: array![].span(), weights: array![].span(), :threshold_weight,
         );
     assert_panic_with_error(:result, expected_error: "ONLY_APP_GOVERNOR");
 
     cheat_caller_address_once(:contract_address, caller_address: APP_GOVERNOR);
     let result = dispatcher
         .set_initial_validator_set(
-            validators: array![].span(), weights: array![].span(), :threshold_weight,
+            public_keys: array![].span(), weights: array![].span(), :threshold_weight,
         );
     assert_panic_with_felt_error(:result, expected_error: INVALID_VALIDATOR_SET_SIZE);
 
     cheat_caller_address_once(:contract_address, caller_address: APP_GOVERNOR);
     let result = dispatcher
         .set_initial_validator_set(
-            validators: array![].span(), weights: array![1].span(), :threshold_weight,
+            public_keys: array![].span(), weights: array![1].span(), :threshold_weight,
         );
-    assert_panic_with_felt_error(:result, expected_error: VALIDATORS_WEIGHTS_LEN_MISMATCH);
+    assert_panic_with_felt_error(:result, expected_error: PUB_KEYS_WEIGHTS_LEN_MISMATCH);
 
     cheat_caller_address_once(:contract_address, caller_address: APP_GOVERNOR);
     let result = dispatcher
         .set_initial_validator_set(
-            validators: array![].span(), weights: array![].span(), threshold_weight: 0,
+            public_keys: array![].span(), weights: array![].span(), threshold_weight: 0,
         );
     assert_panic_with_felt_error(:result, expected_error: INVALID_ZERO_WEIGHT_THRESHOLD);
 
     cheat_caller_address_once(:contract_address, caller_address: APP_GOVERNOR);
     let result = dispatcher
         .set_initial_validator_set(
-            validators: array![pk_1, pk_1].span(), weights: array![1, 2].span(), :threshold_weight,
+            public_keys: array![pk_1, pk_1].span(), weights: array![1, 2].span(), :threshold_weight,
         );
     assert_panic_with_felt_error(:result, expected_error: DUPLICATED_PUBLIC_KEY);
 
     // Successful initialization.
     cheat_caller_address_once(:contract_address, caller_address: APP_GOVERNOR);
-    dispatcher.set_initial_validator_set(validators: pks, :weights, :threshold_weight).unwrap();
+    dispatcher.set_initial_validator_set(public_keys: pks, :weights, :threshold_weight).unwrap();
 
     cheat_caller_address_once(:contract_address, caller_address: APP_GOVERNOR);
     let result = dispatcher
         .set_initial_validator_set(
-            validators: array![].span(), weights: array![].span(), :threshold_weight,
+            public_keys: array![].span(), weights: array![].span(), :threshold_weight,
         );
     assert_panic_with_felt_error(:result, expected_error: VALIDATORS_ALREADY_INITIALIZED);
 }
@@ -155,7 +155,7 @@ fn test_successful_check_proof() {
     cheat_caller_address_once(:contract_address, caller_address: APP_GOVERNOR);
     dispatcher
         .set_initial_validator_set(
-            validators: array![public_key].span(), weights: array![10].span(), threshold_weight: 5,
+            public_keys: array![public_key].span(), weights: array![10].span(), threshold_weight: 5,
         );
 
     // Test:

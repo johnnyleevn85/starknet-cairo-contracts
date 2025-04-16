@@ -7,14 +7,14 @@ pub type Signature = (u256, u256);
 pub trait IConsortium<TContractState> {
     fn set_initial_validator_set(
         ref self: TContractState,
-        validators: Span<PublicKey>,
+        public_keys: Span<PublicKey>,
         weights: Span<u128>,
         threshold_weight: u128,
     );
     fn set_next_validator_set(
         ref self: TContractState,
         epoch: u64,
-        validators: Span<PublicKey>,
+        public_keys: Span<PublicKey>,
         weights: Span<u128>,
         threshold_weight: u128,
         height: u128,

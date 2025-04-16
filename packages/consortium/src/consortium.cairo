@@ -5,8 +5,8 @@ pub mod consortium {
     use lbtc_consortium::errors::{
         INVALID_EPOCH, INVALID_PUBLIC_KEY, INVALID_SIGNATURE, INVALID_VALIDATOR_SET_SIZE,
         INVALID_ZERO_WEIGHT, INVALID_ZERO_WEIGHT_THRESHOLD, NOT_ENOUGH_SIGNATURES,
-        TOTAL_WEIGHT_UNDER_THRESHOLD, VALIDATORS_ALREADY_INITIALIZED, VALIDATORS_PROOF_LEN_MISMATCH,
-        VALIDATORS_WEIGHTS_LEN_MISMATCH, VALIDATORS_WERE_NOT_INITIALIZED,
+        PUB_KEYS_WEIGHTS_LEN_MISMATCH, TOTAL_WEIGHT_UNDER_THRESHOLD, VALIDATORS_ALREADY_INITIALIZED,
+        VALIDATORS_PROOF_LEN_MISMATCH, VALIDATORS_WERE_NOT_INITIALIZED,
     };
     use lbtc_consortium::events::ValidatorSetUpdated;
     use lbtc_consortium::interface::{IConsortium, PublicKey, Signature};
@@ -93,7 +93,7 @@ pub mod consortium {
     pub impl ConsortiumImpl of IConsortium<ContractState> {
         fn set_initial_validator_set(
             ref self: ContractState,
-            validators: Span<PublicKey>,
+            public_keys: Span<PublicKey>,
             weights: Span<u128>,
             threshold_weight: u128,
         ) {
@@ -101,15 +101,15 @@ pub mod consortium {
 
             // Validations.
             assert(self.epoch.read().is_zero(), VALIDATORS_ALREADY_INITIALIZED);
-            self._validate_new_validator_set(:validators, :weights, :threshold_weight);
+            self._validate_new_validator_set(:public_keys, :weights, :threshold_weight);
 
-            self._set_validator_set(epoch: 1, :validators, :weights, :threshold_weight);
+            self._set_validator_set(epoch: 1, :public_keys, :weights, :threshold_weight);
         }
 
         fn set_next_validator_set(
             ref self: ContractState,
             epoch: u64,
-            validators: Span<PublicKey>,
+            public_keys: Span<PublicKey>,
             weights: Span<u128>,
             threshold_weight: u128,
             height: u128,
@@ -118,14 +118,14 @@ pub mod consortium {
             // Validations.
             let cur_epoch = self.epoch.read();
             assert(cur_epoch + 1 == epoch, INVALID_EPOCH);
-            self._validate_new_validator_set(:validators, :weights, :threshold_weight);
+            self._validate_new_validator_set(:public_keys, :weights, :threshold_weight);
 
             let msg_hash = calculate_sha256_for_set_next_validator_set_paylod(
-                :epoch, public_keys: validators, :weights, :threshold_weight, :height,
+                :epoch, :public_keys, :weights, :threshold_weight, :height,
             );
             self.check_proof(:msg_hash, :proof);
 
-            self._set_validator_set(:epoch, :validators, :weights, :threshold_weight);
+            self._set_validator_set(:epoch, :public_keys, :weights, :threshold_weight);
         }
 
         fn check_proof(self: @ContractState, msg_hash: u256, proof: Span<Signature>) {
@@ -197,14 +197,14 @@ pub mod consortium {
     impl ConsortiumPrivateImpl of ConsortiumPrivateTrait {
         fn _validate_new_validator_set(
             ref self: ContractState,
-            validators: Span<PublicKey>,
+            public_keys: Span<PublicKey>,
             weights: Span<u128>,
             threshold_weight: u128,
         ) {
             assert(threshold_weight.is_non_zero(), INVALID_ZERO_WEIGHT_THRESHOLD);
-            assert(validators.len() == weights.len(), VALIDATORS_WEIGHTS_LEN_MISMATCH);
+            assert(public_keys.len() == weights.len(), PUB_KEYS_WEIGHTS_LEN_MISMATCH);
 
-            let validator_set_size = validators.len();
+            let validator_set_size = public_keys.len();
             assert(validator_set_size >= MIN_VALIDATOR_SET_SIZE, INVALID_VALIDATOR_SET_SIZE);
             assert(validator_set_size <= MAX_VALIDATOR_SET_SIZE, INVALID_VALIDATOR_SET_SIZE);
         }
@@ -212,7 +212,7 @@ pub mod consortium {
         fn _set_validator_set(
             ref self: ContractState,
             epoch: u64,
-            validators: Span<PublicKey>,
+            public_keys: Span<PublicKey>,
             weights: Span<u128>,
             threshold_weight: u128,
         ) {
@@ -221,12 +221,12 @@ pub mod consortium {
             let mut eth_addresses: Array<EthAddress> = Default::default();
             let mut address_dict: Felt252Dict<bool> = Default::default();
 
-            for i in 0..validators.len() {
+            for i in 0..public_keys.len() {
                 let weight = *weights[i];
                 assert(weight.is_non_zero(), INVALID_ZERO_WEIGHT);
 
                 // Generate eth address from public key.
-                let (x, y) = *validators[i];
+                let (x, y) = *public_keys[i];
                 let secp_point = Secp256Trait::<Secp256k1Point>::secp256_ec_new_syscall(x, y)
                     .unwrap_syscall()
                     .expect(INVALID_PUBLIC_KEY);
