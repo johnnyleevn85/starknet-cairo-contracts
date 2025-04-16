@@ -2,6 +2,7 @@ use core::num::traits::Zero;
 use lbtc_bridge::bridge::bridge;
 use lbtc_bridge::interface::{IBridgeDispatcher, IBridgeDispatcherTrait};
 use lbtc_bridge::tests::test_utils::*;
+use lbtc_bridge::utils::calculate_sha256_for_deposit_btc_payload;
 use snforge_std::{EventSpyAssertionsTrait, spy_events};
 use starkware_utils_testing::{constants as testing_constants, test_utils};
 
@@ -82,3 +83,19 @@ fn test_bridge_get_burn_commission() {
     let burn_commission = bridge.get_burn_commission();
     assert_eq!(burn_commission, constants::BURN_COMMISSION);
 }
+
+#[test]
+fn test_calculate_deposit_btc_sha256_hash() {
+    // These fields are taken from this tx:
+    // https://etherscan.io/tx/0x49f935f83533f509510c0cd387a44d67342a89e3f9048a6327d5a3e36695a005.
+    let res = calculate_sha256_for_deposit_btc_payload(
+        to_chain: 0x1,
+        recipient: 0xbe6afb3a18bbb8f35e2a12c330d0e37daebab802.try_into().unwrap(),
+        amount: 0xb061cf0,
+        tx_id: 0x8b881e06005aff8dd8768600d785d9d0027b65896368dbf3bd6fbf13ae8fb9d1_u256,
+        vout: 0x0,
+    );
+
+    assert_eq!(res, 0xb0586b1a69730b27c74028669b4b4746052bd4d8250fe0a2d1a74d63218def57);
+}
+
