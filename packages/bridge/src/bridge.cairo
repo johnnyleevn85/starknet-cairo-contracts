@@ -2,6 +2,9 @@
 pub mod bridge {
     use core::num::traits::Zero;
     use lbtc_bascule::interface::{IBasculeDispatcher, IBasculeDispatcherTrait};
+    use lbtc_bridge::bitcoin_utils::{
+        DEFAULT_DUST_FEE_RATE, OutputType, get_dust_limit_for_output, get_output_type,
+    };
     use lbtc_bridge::interface::IBridge;
     use lbtc_bridge::{errors, events};
     use lbtc_consortium::interface::{IConsortiumDispatcher, Signature};
@@ -57,6 +60,7 @@ pub mod bridge {
         burn_commission: u64,
         is_withdrawals_enabled: bool,
         used_payloads: Map<u256, bool>,
+        dust_fee_rate: u128,
     }
 
     #[event]
@@ -77,6 +81,7 @@ pub mod bridge {
         TreasuryChanged: events::TreasuryChanged,
         BurnCommissionChanged: events::BurnCommissionChanged,
         WithdrawalsEnabled: events::WithdrawalsEnabled,
+        DustFeeRateChanged: events::DustFeeRateChanged,
     }
 
     #[constructor]
@@ -97,6 +102,7 @@ pub mod bridge {
         self._set_consortium_address(new_consortium: consortium);
         self._set_treasury_address(new_treasury: treasury);
         self._set_burn_commission(new_burn_commission: burn_commission);
+        self._change_dust_fee_rate(new_rate: DEFAULT_DUST_FEE_RATE);
     }
 
     #[abi(embed_v0)]
@@ -140,9 +146,12 @@ pub mod bridge {
             self.is_withdrawals_enabled.write(false);
             self.emit(events::WithdrawalsEnabled { is_withdrawals_enabled: false });
         }
-
-        // TODO: Implement
-        fn change_dust_fee_rate(ref self: ContractState, new_rate: u128) {}
+        /// Change the dust fee rate (in satoshis per 1000 bytes) used for dust limit calculations.
+        /// Only the app governor can call this function.
+        fn change_dust_fee_rate(ref self: ContractState, new_rate: u128) {
+            self.roles.only_app_governor();
+            self._change_dust_fee_rate(:new_rate);
+        }
 
         // Getters:
 
@@ -178,9 +187,9 @@ pub mod bridge {
             Default::default()
         }
 
-        // TODO: Implement
+        /// Gets the current dust fee rate (in satoshis per 1000 bytes).
         fn get_dust_fee_rate(self: @ContractState) -> u128 {
-            Default::default()
+            self.dust_fee_rate.read()
         }
 
         fn is_payload_used(self: @ContractState, payload_hash: u256) -> bool {
@@ -226,12 +235,49 @@ pub mod bridge {
             self.emit(events::BasculeChanged { old_bascule, new_bascule });
         }
 
+        fn _change_dust_fee_rate(ref self: ContractState, new_rate: u128) {
+            assert(new_rate.is_non_zero(), errors::INVALID_ZERO_DUST_FEE_RATE);
+
+            let old_rate = self.dust_fee_rate.read();
+            self.dust_fee_rate.write(new_rate);
+
+            self.emit(events::DustFeeRateChanged { old_rate, new_rate });
+        }
+
         /// @dev Checks that the deposit was validated by the Bascule drawbridge.
         /// @param deposit_id The unique ID of the deposit.
         /// @param amount The withdrawal amount.
         fn _confirm_deposit(ref self: ContractState, deposit_id: u256, amount: u128) {
             let bascule = self.bascule.read();
             bascule.validate_withdrawal(deposit_id, amount);
+        }
+
+        /// Calculates the post-fee amount and checks if it's above the dust limit.
+        ///
+        /// Returns:
+        /// - `amount_after_fee`: The amount after fee deduction.
+        /// - `is_amount_valid`: True if `amount > fee`.
+        /// - `dust_limit`: The dust threshold for the script.
+        /// - `is_above_dust`: True if `amount_after_fee > dust_limit`.
+        ///
+        fn _calculate_fee_and_dust_limit(
+            self: @ContractState, script_pub_key: @ByteArray, amount: u128, fee: u64,
+        ) -> (u128, bool, u128, bool) {
+            let output_type = get_output_type(:script_pub_key);
+            assert(output_type != OutputType::UNSUPPORTED, errors::SCRIPT_PUB_KEY_UNSUPPORTED);
+
+            if amount <= fee.into() {
+                return (0, false, 0, false);
+            }
+
+            let amount_after_fee = amount - fee.into();
+            let dust_fee_rate = self.dust_fee_rate.read();
+            let dust_limit = get_dust_limit_for_output(
+                :output_type, :script_pub_key, :dust_fee_rate,
+            );
+            let is_above_dust = amount_after_fee > dust_limit;
+
+            (amount_after_fee, true, dust_limit, is_above_dust)
         }
     }
 }

@@ -1,6 +1,6 @@
 use starkware_utils::math::utils::mul_wide_and_ceil_div;
 
-#[derive(Drop)]
+#[derive(Drop, PartialEq)]
 pub enum OutputType {
     UNSUPPORTED,
     P2TR,
@@ -9,7 +9,7 @@ pub enum OutputType {
 }
 
 // Default value - 3 satoshis per byte
-pub const DEFAULT_DUST_FEE_RATE: u32 = 3000;
+pub const DEFAULT_DUST_FEE_RATE: u128 = 3000;
 
 const OP_0: u8 = 0x00;
 const OP_1: u8 = 0x51;

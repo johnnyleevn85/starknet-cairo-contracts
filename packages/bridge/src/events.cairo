@@ -29,3 +29,8 @@ pub struct WithdrawalsEnabled {
     pub is_withdrawals_enabled: bool,
 }
 
+#[derive(Debug, Drop, PartialEq, starknet::Event)]
+pub struct DustFeeRateChanged {
+    pub old_rate: u128,
+    pub new_rate: u128,
+}
