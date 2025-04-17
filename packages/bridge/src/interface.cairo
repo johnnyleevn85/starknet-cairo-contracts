@@ -20,7 +20,6 @@ pub trait IBridge<TContractState> {
     );
     fn redeem(ref self: TContractState, script_public_key: Span<felt252>, amount: u128);
 
-    // getters:
     fn get_lbtc_token_address(self: @TContractState) -> ContractAddress;
     fn get_bascule(self: @TContractState) -> ContractAddress;
     fn get_consortium(self: @TContractState) -> ContractAddress;
@@ -31,7 +30,5 @@ pub trait IBridge<TContractState> {
         self: @TContractState, script_public_key: Span<felt252>, amount: u128,
     ) -> (u128, bool);
     fn get_dust_fee_rate(self: @TContractState) -> u128;
-    fn is_payload_used(
-        self: @TContractState, payload_hash: u256, legacy_used_payload_hash: u256,
-    ) -> bool;
+    fn is_payload_used(self: @TContractState, payload_hash: u256) -> bool;
 }

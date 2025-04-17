@@ -4,11 +4,13 @@ pub mod bridge {
     use lbtc_bascule::interface::{IBasculeDispatcher, IBasculeDispatcherTrait};
     use lbtc_bridge::interface::IBridge;
     use lbtc_bridge::{errors, events};
-    use lbtc_consortium::interface::{IConsortiumDispatcher, IConsortiumDispatcherTrait, Signature};
+    use lbtc_consortium::interface::{IConsortiumDispatcher, Signature};
     use openzeppelin::access::accesscontrol::AccessControlComponent;
     use openzeppelin::introspection::src5::SRC5Component;
     use starknet::ContractAddress;
-    use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
+    use starknet::storage::{
+        Map, StorageMapReadAccess, StoragePointerReadAccess, StoragePointerWriteAccess,
+    };
     use starkware_utils::components::pausable::PausableComponent;
     use starkware_utils::components::replaceability::ReplaceabilityComponent;
     use starkware_utils::components::replaceability::ReplaceabilityComponent::InternalReplaceabilityTrait;
@@ -54,6 +56,7 @@ pub mod bridge {
         treasury: ContractAddress,
         burn_commission: u64,
         is_withdrawals_enabled: bool,
+        used_payloads: Map<u256, bool>,
     }
 
     #[event]
@@ -158,24 +161,30 @@ pub mod bridge {
         fn get_treasury(self: @ContractState) -> ContractAddress {
             self.treasury.read()
         }
+
         fn get_burn_commission(self: @ContractState) -> u64 {
             self.burn_commission.read()
         }
+
+        // TODO: Implement
         fn get_mint_fee(self: @ContractState) -> u128 {
             Default::default()
         }
+
+        // TODO: Implement
         fn calc_unstake_request_amount(
             self: @ContractState, script_public_key: Span<felt252>, amount: u128,
         ) -> (u128, bool) {
             Default::default()
         }
+
+        // TODO: Implement
         fn get_dust_fee_rate(self: @ContractState) -> u128 {
             Default::default()
         }
-        fn is_payload_used(
-            self: @ContractState, payload_hash: u256, legacy_used_payload_hash: u256,
-        ) -> bool {
-            Default::default()
+
+        fn is_payload_used(self: @ContractState, payload_hash: u256) -> bool {
+            self.used_payloads.read(payload_hash)
         }
     }
 
