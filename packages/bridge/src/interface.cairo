@@ -24,7 +24,7 @@ pub trait IBridge<TContractState> {
     fn get_consortium(self: @TContractState) -> ContractAddress;
     fn get_treasury(self: @TContractState) -> ContractAddress;
     fn get_burn_commission(self: @TContractState) -> u64;
-    fn calc_unstake_request_amount(
+    fn calculate_unstake_request_amount(
         self: @TContractState, script_pub_key: ByteArray, amount: u128,
     ) -> (u128, bool);
     fn get_dust_fee_rate(self: @TContractState) -> u128;

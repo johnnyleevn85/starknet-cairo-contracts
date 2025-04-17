@@ -214,11 +214,22 @@ pub mod bridge {
             self.burn_commission.read()
         }
 
-        // TODO: Implement
-        fn calc_unstake_request_amount(
+        /// Calculates the unstakeable amount after burn commission and checks against the dust
+        /// limit.
+        ///
+        /// Returns:
+        /// - `amount_after_fee`: The amount that will be unstaked.
+        /// - `is_above_dust`: True if `amount_after_fee` >= dust limit.
+        ///
+        /// Intended for frontends to validate unstake requests before submission.
+        fn calculate_unstake_request_amount(
             self: @ContractState, script_pub_key: ByteArray, amount: u128,
         ) -> (u128, bool) {
-            Default::default()
+            let fee = self.burn_commission.read();
+            let (amount_after_fee, _, _, is_above_dust) = self
+                ._calculate_fee_and_dust_limit(script_pub_key: @script_pub_key, :amount, :fee);
+
+            (amount_after_fee, is_above_dust)
         }
 
         /// Gets the current dust fee rate (in satoshis per 1000 bytes).
