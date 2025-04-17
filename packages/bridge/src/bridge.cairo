@@ -14,6 +14,9 @@ pub mod bridge {
     use starkware_utils::components::replaceability::ReplaceabilityComponent::InternalReplaceabilityTrait;
     use starkware_utils::components::roles::RolesComponent;
     use starkware_utils::components::roles::RolesComponent::InternalTrait as RolesInternal;
+    use starkware_utils::interfaces::mintable_token::{
+        IMintableTokenDispatcher, IMintableTokenDispatcherTrait,
+    };
 
 
     component!(path: AccessControlComponent, storage: accesscontrol, event: AccessControlEvent);
@@ -47,6 +50,7 @@ pub mod bridge {
         // --- Bridge ---
         bascule: IBasculeDispatcher,
         consortium: IConsortiumDispatcher,
+        lbtc_token: IMintableTokenDispatcher,
         treasury: ContractAddress,
         burn_commission: u64,
         is_withdrawals_enabled: bool,
@@ -77,6 +81,7 @@ pub mod bridge {
         ref self: ContractState,
         governance_admin: ContractAddress,
         upgrade_delay: u64,
+        lbtc_token: ContractAddress,
         bascule: ContractAddress,
         consortium: ContractAddress,
         treasury: ContractAddress,
@@ -84,6 +89,7 @@ pub mod bridge {
     ) {
         self.roles.initialize(:governance_admin);
         self.replaceability.initialize(:upgrade_delay);
+        self._set_lbtc_token_address(:lbtc_token);
         self._set_bascule_address(new_bascule: bascule);
         self._set_consortium_address(new_consortium: consortium);
         self._set_treasury_address(new_treasury: treasury);
@@ -136,6 +142,10 @@ pub mod bridge {
         fn change_dust_fee_rate(ref self: ContractState, new_rate: u128) {}
 
         // Getters:
+
+        fn get_lbtc_token_address(self: @ContractState) -> ContractAddress {
+            self.lbtc_token.read().contract_address
+        }
 
         fn get_bascule(self: @ContractState) -> ContractAddress {
             self.bascule.read().contract_address
@@ -190,6 +200,11 @@ pub mod bridge {
             let old_burn_commission = self.burn_commission.read();
             self.burn_commission.write(new_burn_commission);
             self.emit(events::BurnCommissionChanged { old_burn_commission, new_burn_commission });
+        }
+
+        fn _set_lbtc_token_address(ref self: ContractState, lbtc_token: ContractAddress) {
+            assert(lbtc_token.is_non_zero(), errors::INVALID_ZERO_ADDRESS);
+            self.lbtc_token.write(IMintableTokenDispatcher { contract_address: lbtc_token });
         }
 
         /// Change the address of the Bascule drawbridge contract.

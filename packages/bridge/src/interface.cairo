@@ -21,6 +21,7 @@ pub trait IBridge<TContractState> {
     fn redeem(ref self: TContractState, script_public_key: Span<felt252>, amount: u128);
 
     // getters:
+    fn get_lbtc_token_address(self: @TContractState) -> ContractAddress;
     fn get_bascule(self: @TContractState) -> ContractAddress;
     fn get_consortium(self: @TContractState) -> ContractAddress;
     fn get_treasury(self: @TContractState) -> ContractAddress;
