@@ -18,7 +18,7 @@ pub trait IBridge<TContractState> {
         vout: u32,
         proof: Span<Signature>,
     );
-    fn redeem(ref self: TContractState, script_public_key: Span<felt252>, amount: u128);
+    fn redeem(ref self: TContractState, script_pub_key: ByteArray, amount: u128);
 
     fn get_lbtc_token_address(self: @TContractState) -> ContractAddress;
     fn get_bascule(self: @TContractState) -> ContractAddress;
@@ -27,7 +27,7 @@ pub trait IBridge<TContractState> {
     fn get_burn_commission(self: @TContractState) -> u64;
     fn get_mint_fee(self: @TContractState) -> u128;
     fn calc_unstake_request_amount(
-        self: @TContractState, script_public_key: Span<felt252>, amount: u128,
+        self: @TContractState, script_pub_key: ByteArray, amount: u128,
     ) -> (u128, bool);
     fn get_dust_fee_rate(self: @TContractState) -> u128;
     fn is_payload_used(self: @TContractState, payload_hash: u256) -> bool;

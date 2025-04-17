@@ -10,15 +10,16 @@ pub mod bridge {
     use lbtc_consortium::interface::{IConsortiumDispatcher, Signature};
     use openzeppelin::access::accesscontrol::AccessControlComponent;
     use openzeppelin::introspection::src5::SRC5Component;
-    use starknet::ContractAddress;
     use starknet::storage::{
         Map, StorageMapReadAccess, StoragePointerReadAccess, StoragePointerWriteAccess,
     };
+    use starknet::{ContractAddress, get_caller_address};
     use starkware_utils::components::pausable::PausableComponent;
     use starkware_utils::components::replaceability::ReplaceabilityComponent;
     use starkware_utils::components::replaceability::ReplaceabilityComponent::InternalReplaceabilityTrait;
     use starkware_utils::components::roles::RolesComponent;
     use starkware_utils::components::roles::RolesComponent::InternalTrait as RolesInternal;
+    use starkware_utils::errors::assert_with_byte_array;
     use starkware_utils::interfaces::mintable_token::{
         IMintableTokenDispatcher, IMintableTokenDispatcherTrait,
     };
@@ -81,6 +82,7 @@ pub mod bridge {
         TreasuryChanged: events::TreasuryChanged,
         BurnCommissionChanged: events::BurnCommissionChanged,
         WithdrawalsEnabled: events::WithdrawalsEnabled,
+        UnstakeRequest: events::UnstakeRequest,
         DustFeeRateChanged: events::DustFeeRateChanged,
     }
 
@@ -120,8 +122,33 @@ pub mod bridge {
             proof: Span<Signature>,
         ) {}
 
-        // TODO: Implement
-        fn redeem(ref self: ContractState, script_public_key: Span<felt252>, amount: u128) {}
+        /// Burns LBTC to initiate withdrawal of BTC to provided `scriptPubkey` with `amount`.
+        ///
+        /// Arguments:
+        /// scriptPubkey for output.
+        /// Amount of LBTC to burn.
+        ///
+        fn redeem(ref self: ContractState, script_pub_key: ByteArray, amount: u128) {
+            assert(self.is_withdrawals_enabled.read(), errors::WITHDRAWALS_DISABLED);
+
+            let fee = self.burn_commission.read();
+
+            let (amount_after_fee, is_above_fee, dust_limit, is_above_dust) = self
+                ._calculate_fee_and_dust_limit(script_pub_key: @script_pub_key, :amount, :fee);
+
+            assert_with_byte_array(is_above_fee, errors::amount_below_dust_limit(:dust_limit));
+            assert_with_byte_array(is_above_dust, errors::amount_less_than_commission(:fee));
+
+            let caller_address = get_caller_address();
+            // TODO(Mohammad): Transfer fee from caller address and burn `amount_after_fee`.
+
+            self
+                .emit(
+                    events::UnstakeRequest {
+                        from_address: caller_address, script_pub_key, amount_after_fee,
+                    },
+                );
+        }
 
         /// ONLY APP_GOVERNOR FUNCTIONS ///
 
@@ -182,7 +209,7 @@ pub mod bridge {
 
         // TODO: Implement
         fn calc_unstake_request_amount(
-            self: @ContractState, script_public_key: Span<felt252>, amount: u128,
+            self: @ContractState, script_pub_key: ByteArray, amount: u128,
         ) -> (u128, bool) {
             Default::default()
         }

@@ -30,6 +30,13 @@ pub struct WithdrawalsEnabled {
 }
 
 #[derive(Debug, Drop, PartialEq, starknet::Event)]
+pub struct UnstakeRequest {
+    pub from_address: ContractAddress,
+    pub script_pub_key: ByteArray,
+    pub amount_after_fee: u128,
+}
+
+#[derive(Debug, Drop, PartialEq, starknet::Event)]
 pub struct DustFeeRateChanged {
     pub old_rate: u128,
     pub new_rate: u128,
