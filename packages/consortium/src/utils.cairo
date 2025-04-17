@@ -7,6 +7,7 @@ use starknet::eth_address::EthAddress;
 use starknet::eth_signature::public_key_point_to_eth_address;
 use starknet::secp256_trait::{Signature, recover_public_key};
 use starknet::secp256k1::Secp256k1Point;
+use starkware_utils::math::utils::u256_from_u32_array;
 
 pub fn is_signature_by_signer(signer: EthAddress, msg_hash: u256, signature: Signature) -> bool {
     if let Option::Some(public_key_point) =
@@ -71,7 +72,9 @@ pub fn calculate_sha256_for_set_next_validator_set_paylod(
     // Weights length.
     append_weights(ref arr: payload, values: weights);
 
-    compute_sha256(arr: payload)
+    u256_from_u32_array(
+        compute_sha256_u32_array(input: payload, last_input_word: 0, last_input_num_bytes: 0),
+    )
 }
 
 
@@ -179,17 +182,6 @@ fn append_u256_u32_limbs(ref arr: Array<u32>, value: u256) {
     arr.append(v0.try_into().expect(SHOULD_FIT_IN_U32));
 }
 
-
-fn compute_sha256(arr: Array<u32>) -> u256 {
-    let sha256 = compute_sha256_u32_array(input: arr, last_input_word: 0, last_input_num_bytes: 0);
-
-    let mut value: u256 = 0;
-    for word in sha256.span() {
-        value *= 0x100000000;
-        value = value + (*word).into();
-    }
-    value
-}
 
 pub fn ensure_uniqueness(ref address_dict: Felt252Dict<bool>, eth_address: EthAddress) {
     let address_felt252 = eth_address.into();

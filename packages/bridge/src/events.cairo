@@ -30,6 +30,15 @@ pub struct WithdrawalsEnabled {
 }
 
 #[derive(Debug, Drop, PartialEq, starknet::Event)]
+pub struct MintProofConsumed {
+    #[key]
+    pub recipient: ContractAddress,
+    #[key]
+    pub payload_hash: u256,
+    pub payload: ByteArray,
+}
+
+#[derive(Debug, Drop, PartialEq, starknet::Event)]
 pub struct UnstakeRequest {
     pub from_address: ContractAddress,
     pub script_pub_key: ByteArray,
@@ -41,3 +50,4 @@ pub struct DustFeeRateChanged {
     pub old_rate: u128,
     pub new_rate: u128,
 }
+

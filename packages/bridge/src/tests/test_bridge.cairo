@@ -1,9 +1,11 @@
 use core::num::traits::Zero;
+use core::sha256::compute_sha256_byte_array;
 use lbtc_bridge::bridge::bridge;
 use lbtc_bridge::interface::{IBridgeDispatcher, IBridgeDispatcherTrait};
 use lbtc_bridge::tests::test_utils::*;
-use lbtc_bridge::utils::calculate_sha256_for_deposit_btc_payload;
+use lbtc_bridge::utils::{build_deposit_payload, build_deposit_payload_with_selector};
 use snforge_std::{EventSpyAssertionsTrait, spy_events};
+use starkware_utils::math::utils::u256_from_u32_array;
 use starkware_utils_testing::{constants as testing_constants, test_utils};
 
 #[test]
@@ -88,14 +90,17 @@ fn test_bridge_get_burn_commission() {
 fn test_calculate_deposit_btc_sha256_hash() {
     // These fields are taken from this tx:
     // https://etherscan.io/tx/0x49f935f83533f509510c0cd387a44d67342a89e3f9048a6327d5a3e36695a005.
-    let res = calculate_sha256_for_deposit_btc_payload(
+    let payload_without_selector = build_deposit_payload(
         to_chain: 0x1,
         recipient: 0xbe6afb3a18bbb8f35e2a12c330d0e37daebab802.try_into().unwrap(),
         amount: 0xb061cf0,
         tx_id: 0x8b881e06005aff8dd8768600d785d9d0027b65896368dbf3bd6fbf13ae8fb9d1_u256,
         vout: 0x0,
     );
-
+    let payload: ByteArray = build_deposit_payload_with_selector(
+        deposit_payload: @payload_without_selector,
+    );
+    let res: u256 = u256_from_u32_array(compute_sha256_byte_array(arr: @payload));
     assert_eq!(res, 0xb0586b1a69730b27c74028669b4b4746052bd4d8250fe0a2d1a74d63218def57);
 }
 

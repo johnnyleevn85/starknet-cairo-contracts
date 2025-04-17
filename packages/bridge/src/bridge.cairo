@@ -1,19 +1,24 @@
 #[starknet::contract]
 pub mod bridge {
     use core::num::traits::Zero;
+    use core::sha256::compute_sha256_byte_array;
     use lbtc_bascule::interface::{IBasculeDispatcher, IBasculeDispatcherTrait};
     use lbtc_bridge::bitcoin_utils::{
         DEFAULT_DUST_FEE_RATE, OutputType, get_dust_limit_for_output, get_output_type,
     };
     use lbtc_bridge::interface::IBridge;
+    use lbtc_bridge::utils::{
+        build_deposit_payload, build_deposit_payload_with_selector, compute_keccak,
+    };
     use lbtc_bridge::{errors, events};
-    use lbtc_consortium::interface::{IConsortiumDispatcher, Signature};
+    use lbtc_consortium::interface::{IConsortiumDispatcher, IConsortiumDispatcherTrait, Signature};
     use openzeppelin::access::accesscontrol::AccessControlComponent;
     use openzeppelin::introspection::src5::SRC5Component;
     use starknet::storage::{
-        Map, StorageMapReadAccess, StoragePointerReadAccess, StoragePointerWriteAccess,
+        Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
+        StoragePointerWriteAccess,
     };
-    use starknet::{ContractAddress, get_caller_address};
+    use starknet::{ContractAddress, get_caller_address, get_tx_info};
     use starkware_utils::components::pausable::PausableComponent;
     use starkware_utils::components::replaceability::ReplaceabilityComponent;
     use starkware_utils::components::replaceability::ReplaceabilityComponent::InternalReplaceabilityTrait;
@@ -23,6 +28,7 @@ pub mod bridge {
     use starkware_utils::interfaces::mintable_token::{
         IMintableTokenDispatcher, IMintableTokenDispatcherTrait,
     };
+    use starkware_utils::math::utils::u256_from_u32_array;
 
 
     component!(path: AccessControlComponent, storage: accesscontrol, event: AccessControlEvent);
@@ -84,6 +90,7 @@ pub mod bridge {
         WithdrawalsEnabled: events::WithdrawalsEnabled,
         UnstakeRequest: events::UnstakeRequest,
         DustFeeRateChanged: events::DustFeeRateChanged,
+        MintProofConsumed: events::MintProofConsumed,
     }
 
     #[constructor]
@@ -109,7 +116,6 @@ pub mod bridge {
 
     #[abi(embed_v0)]
     pub impl BridgeImpl of IBridge<ContractState> {
-        // TODO: Implement
         fn mint(
             ref self: ContractState,
             to_chain: u128,
@@ -118,7 +124,12 @@ pub mod bridge {
             tx_id: u256,
             vout: u32,
             proof: Span<Signature>,
-        ) {}
+        ) {
+            assert(to_chain.into() == get_tx_info().unbox().chain_id, errors::WRONG_CHAIN_ID);
+            assert(recipient.is_non_zero(), errors::INVALID_ZERO_ADDRESS);
+            assert(amount.is_non_zero(), errors::INVALID_ZERO_AMOUNT);
+            self._validate_and_mint(:amount, :to_chain, :recipient, :tx_id, :vout, :proof);
+        }
 
         /// Burns LBTC to initiate withdrawal of BTC to provided `scriptPubkey` with `amount`.
         ///
@@ -264,12 +275,45 @@ pub mod bridge {
             self.emit(events::DustFeeRateChanged { old_rate, new_rate });
         }
 
-        /// @dev Checks that the deposit was validated by the Bascule drawbridge.
-        /// @param deposit_id The unique ID of the deposit.
-        /// @param amount The withdrawal amount.
-        fn _confirm_deposit(ref self: ContractState, deposit_id: u256, amount: u128) {
+        fn _validate_and_mint(
+            ref self: ContractState,
+            amount: u128,
+            to_chain: u128,
+            recipient: ContractAddress,
+            tx_id: u256,
+            vout: u32,
+            proof: Span<Signature>,
+        ) {
+            /// make sure that hash of payload not used before
+            /// need to check new sha256 hash and legacy keccak256 from payload without selector
+            /// 2 checks made to prevent migration of contract state
+            let legacy_payload = build_deposit_payload(
+                :to_chain, :recipient, :amount, :tx_id, :vout,
+            );
+
+            let payload: ByteArray = build_deposit_payload_with_selector(
+                deposit_payload: @legacy_payload,
+            );
+
+            let payload_hash: u256 = u256_from_u32_array(compute_sha256_byte_array(arr: @payload));
+            let deposit_id: u256 = compute_keccak(arr: @legacy_payload);
+            if self.is_payload_used(:payload_hash) {
+                core::panic_with_felt252(errors::PAYLOAD_ALREADY_USED);
+            }
+            self.used_payloads.write(payload_hash, true);
+            self.used_payloads.write(deposit_id, true);
+            let consortium = self.consortium.read();
+            consortium.check_proof(msg_hash: payload_hash, :proof);
+
+            // Confirm deposit against Bascule
             let bascule = self.bascule.read();
-            bascule.validate_withdrawal(deposit_id, amount);
+            bascule.validate_withdrawal(:deposit_id, withdrawal_amount: amount);
+
+            // Mint `amount` to `recipient`.
+            let lbtc_token = self.lbtc_token.read();
+            lbtc_token.permissioned_mint(account: recipient, amount: amount.into());
+
+            self.emit(events::MintProofConsumed { recipient, payload_hash, payload });
         }
 
         /// Calculates the post-fee amount and checks if it's above the dust limit.
