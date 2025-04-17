@@ -110,8 +110,6 @@ pub mod bridge {
     #[abi(embed_v0)]
     pub impl BridgeImpl of IBridge<ContractState> {
         // TODO: Implement
-        fn set_mint_fee(ref self: ContractState, fee: u128) {}
-        // TODO: Implement
         fn mint(
             ref self: ContractState,
             to_chain: u128,
@@ -200,11 +198,6 @@ pub mod bridge {
 
         fn get_burn_commission(self: @ContractState) -> u64 {
             self.burn_commission.read()
-        }
-
-        // TODO: Implement
-        fn get_mint_fee(self: @ContractState) -> u128 {
-            Default::default()
         }
 
         // TODO: Implement
