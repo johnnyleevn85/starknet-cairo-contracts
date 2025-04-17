@@ -30,7 +30,6 @@ pub mod bridge {
     };
     use starkware_utils::math::utils::u256_from_u32_array;
 
-
     component!(path: AccessControlComponent, storage: accesscontrol, event: AccessControlEvent);
     component!(path: PausableComponent, storage: pausable, event: PausableEvent);
     component!(path: RolesComponent, storage: roles, event: RolesEvent);
@@ -148,8 +147,11 @@ pub mod bridge {
             assert_with_byte_array(is_above_fee, errors::amount_below_dust_limit(:dust_limit));
             assert_with_byte_array(is_above_dust, errors::amount_less_than_commission(:fee));
 
+            // This equivalent to burning `amount_after_fee`, and transfer fee to treasury.
             let caller_address = get_caller_address();
-            // TODO(Mohammad): Transfer fee from caller address and burn `amount_after_fee`.
+            let token_dispatcher = self.lbtc_token.read();
+            token_dispatcher.permissioned_burn(account: caller_address, amount: amount.into());
+            token_dispatcher.permissioned_mint(account: self.get_treasury(), amount: fee.into());
 
             self
                 .emit(
@@ -184,6 +186,7 @@ pub mod bridge {
         }
         /// Change the dust fee rate (in satoshis per 1000 bytes) used for dust limit calculations.
         /// Only the app governor can call this function.
+        /// The new rate must greater than 0.
         fn change_dust_fee_rate(ref self: ContractState, new_rate: u128) {
             self.roles.only_app_governor();
             self._change_dust_fee_rate(:new_rate);
