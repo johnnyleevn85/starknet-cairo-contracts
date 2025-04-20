@@ -1,5 +1,6 @@
 use core::num::traits::Zero;
 use core::sha256::compute_sha256_byte_array;
+use lbtc_bridge::bitcoin_utils::DEFAULT_DUST_FEE_RATE;
 use lbtc_bridge::bridge::bridge;
 use lbtc_bridge::interface::{IBridgeDispatcher, IBridgeDispatcherTrait};
 use lbtc_bridge::tests::test_utils::*;
@@ -104,3 +105,32 @@ fn test_calculate_deposit_btc_sha256_hash() {
     assert_eq!(res, 0xb0586b1a69730b27c74028669b4b4746052bd4d8250fe0a2d1a74d63218def57);
 }
 
+#[test]
+fn test_change_dust_fee_rate() {
+    let bridge_address = init_bridge_with_roles();
+    let bridge = IBridgeDispatcher { contract_address: bridge_address };
+    let mut spy = spy_events();
+    let old_rate = DEFAULT_DUST_FEE_RATE;
+
+    let dust_fee_rate = bridge.get_dust_fee_rate();
+    assert_eq!(dust_fee_rate, old_rate);
+
+    let new_rate = 13;
+    test_utils::cheat_caller_address_once(
+        contract_address: bridge_address, caller_address: testing_constants::APP_GOVERNOR,
+    );
+    bridge.change_dust_fee_rate(:new_rate);
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    bridge_address,
+                    lbtc_bridge::bridge::bridge::Event::DustFeeRateChanged(
+                        lbtc_bridge::events::DustFeeRateChanged { old_rate, new_rate },
+                    ),
+                ),
+            ],
+        );
+    let dust_fee_rate = bridge.get_dust_fee_rate();
+    assert_eq!(dust_fee_rate, new_rate);
+}
