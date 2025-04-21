@@ -1,10 +1,10 @@
 use lbtc_consortium::errors::{
-    DUPLICATED_PUBLIC_KEY, INVALID_VALIDATOR_SET_SIZE, INVALID_ZERO_WEIGHT_THRESHOLD,
-    PUB_KEYS_WEIGHTS_LEN_MISMATCH, VALIDATORS_ALREADY_INITIALIZED,
+    DUPLICATED_PUBLIC_KEY, INVALID_EPOCH, INVALID_VALIDATOR_SET_SIZE, INVALID_ZERO_WEIGHT_THRESHOLD,
+    PUB_KEYS_WEIGHTS_LEN_MISMATCH, VALIDATORS_ALREADY_INITIALIZED, VALIDATORS_WERE_NOT_INITIALIZED,
 };
 use lbtc_consortium::interface::{
     IConsortiumDispatcher, IConsortiumDispatcherTrait, IConsortiumSafeDispatcher,
-    IConsortiumSafeDispatcherTrait,
+    IConsortiumSafeDispatcherTrait, Signature,
 };
 use lbtc_consortium::tests::test_utils::init_contract_with_roles;
 use starknet::eth_address::EthAddress;
@@ -135,6 +135,90 @@ fn test_illegal_initial_validator_set() {
     assert_panic_with_felt_error(:result, expected_error: VALIDATORS_ALREADY_INITIALIZED);
 }
 
+#[test]
+#[feature("safe_dispatcher")]
+fn test_illegal_set_next_validator_set() {
+    // Setup:
+    let contract_address = init_contract_with_roles();
+    let dispatcher = IConsortiumSafeDispatcher { contract_address };
+
+    // Params:
+    let public_key_1 = (
+        0x21a30c0bdaa3b425e17a062bfdf5b8ecaed4e2d3ab4b30b0774472d4621081d9_u256,
+        0x6a50131029f32effbe5d8ba0da8c75760ff5add90c77efcd48eeebbf56094bd8_u256,
+    );
+    let public_key_2 = (
+        0xd9bee4a028efa3eaca7134e953bad6378aa4085e7e7887de7ef249e735ef156d_u256,
+        0x83f08fa5fbb65fed7b736b61247bbd522f1d03b5fbdda7d4b83519ea11c67319_u256,
+    );
+    let public_keys = array![public_key_1, public_key_2].span();
+    let weights = array![20, 30].span();
+    let height = 1234321;
+    let threshold_weight = 25;
+    let proof: Span<Signature> = array![].span();
+
+    // Test:
+    for epoch in array![0, 2, 33] {
+        let result = dispatcher
+            .set_next_validator_set(
+                :epoch,
+                public_keys: array![].span(),
+                weights: array![].span(),
+                :threshold_weight,
+                :height,
+                proof: proof.clone(),
+            );
+        assert_panic_with_felt_error(:result, expected_error: INVALID_EPOCH);
+    }
+
+    let result = dispatcher
+        .set_next_validator_set(
+            epoch: 1,
+            public_keys: array![public_key_1].span(),
+            weights: array![20].span(),
+            :threshold_weight,
+            :height,
+            proof: proof.clone(),
+        );
+    assert_panic_with_felt_error(:result, expected_error: VALIDATORS_WERE_NOT_INITIALIZED);
+
+    // Successful set initial validators.
+    cheat_caller_address_once(:contract_address, caller_address: APP_GOVERNOR);
+    dispatcher.set_initial_validator_set(:public_keys, :weights, :threshold_weight).unwrap();
+
+    let result = dispatcher
+        .set_next_validator_set(
+            epoch: 2,
+            public_keys: array![].span(),
+            weights: array![].span(),
+            :threshold_weight,
+            :height,
+            proof: proof.clone(),
+        );
+    assert_panic_with_felt_error(:result, expected_error: INVALID_VALIDATOR_SET_SIZE);
+
+    let result = dispatcher
+        .set_next_validator_set(
+            epoch: 2,
+            public_keys: array![].span(),
+            weights: array![1].span(),
+            :threshold_weight,
+            :height,
+            proof: proof.clone(),
+        );
+    assert_panic_with_felt_error(:result, expected_error: PUB_KEYS_WEIGHTS_LEN_MISMATCH);
+
+    let result = dispatcher
+        .set_next_validator_set(
+            epoch: 2,
+            public_keys: array![public_key_1].span(),
+            weights: array![30].span(),
+            threshold_weight: 0,
+            :height,
+            proof: proof.clone(),
+        );
+    assert_panic_with_felt_error(:result, expected_error: INVALID_ZERO_WEIGHT_THRESHOLD);
+}
 
 #[test]
 fn test_successful_check_proof() {
