@@ -5,6 +5,7 @@ members = [
     "packages/consortium",
     "packages/bridge",
     "packages/vault",
+    "packages/testing",
 ]
 
 
