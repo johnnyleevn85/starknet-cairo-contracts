@@ -240,6 +240,10 @@ pub mod bridge {
         fn is_payload_used(self: @ContractState, payload_hash: u256) -> bool {
             self.used_payloads.read(payload_hash)
         }
+
+        fn is_withdrawals_enabled(self: @ContractState) -> bool {
+            self.is_withdrawals_enabled.read()
+        }
     }
 
 

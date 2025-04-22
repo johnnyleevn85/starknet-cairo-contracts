@@ -29,4 +29,5 @@ pub trait IBridge<TContractState> {
     ) -> (u128, bool);
     fn get_dust_fee_rate(self: @TContractState) -> u128;
     fn is_payload_used(self: @TContractState, payload_hash: u256) -> bool;
+    fn is_withdrawals_enabled(self: @TContractState) -> bool;
 }
