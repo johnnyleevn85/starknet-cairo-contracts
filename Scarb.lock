@@ -5,6 +5,7 @@ version = 1
 name = "lbtc_bascule"
 version = "0.1.0"
 dependencies = [
+ "lbtc_testing",
  "openzeppelin",
  "openzeppelin_testing",
  "snforge_std",
@@ -18,6 +19,7 @@ version = "0.1.0"
 dependencies = [
  "lbtc_bascule",
  "lbtc_consortium",
+ "lbtc_testing",
  "openzeppelin",
  "openzeppelin_testing",
  "snforge_std",
@@ -29,6 +31,7 @@ dependencies = [
 name = "lbtc_consortium"
 version = "0.1.0"
 dependencies = [
+ "lbtc_testing",
  "openzeppelin",
  "openzeppelin_testing",
  "snforge_std",

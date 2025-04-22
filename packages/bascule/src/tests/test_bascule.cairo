@@ -1,5 +1,5 @@
 use lbtc_bascule::interface::{IBasculeDispatcher, IBasculeDispatcherTrait};
-use lbtc_bascule::tests::test_utils::*;
+use lbtc_testing::utils::bascule::*;
 use snforge_std::{EventSpyAssertionsTrait, spy_events};
 use starkware_utils_testing::constants as testing_constants;
 use starkware_utils_testing::test_utils::cheat_caller_address_once;

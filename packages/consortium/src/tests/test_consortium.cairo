@@ -6,7 +6,7 @@ use lbtc_consortium::interface::{
     IConsortiumDispatcher, IConsortiumDispatcherTrait, IConsortiumSafeDispatcher,
     IConsortiumSafeDispatcherTrait, Signature,
 };
-use lbtc_consortium::tests::test_utils::init_contract_with_roles;
+use lbtc_testing::utils::consortium::init_contract_with_roles;
 use starknet::eth_address::EthAddress;
 use starkware_utils_testing::constants::APP_GOVERNOR;
 use starkware_utils_testing::test_utils::{
