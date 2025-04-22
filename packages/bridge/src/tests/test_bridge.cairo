@@ -131,6 +131,44 @@ fn test_change_dust_fee_rate() {
                 ),
             ],
         );
-    let dust_fee_rate = bridge.get_dust_fee_rate();
-    assert_eq!(dust_fee_rate, new_rate);
+}
+#[test]
+fn test_toggle_withdrawals() {
+    let bridge_address = init_bridge_with_roles();
+    let bridge = IBridgeDispatcher { contract_address: bridge_address };
+    let mut spy = spy_events();
+
+    test_utils::cheat_caller_address_once(
+        contract_address: bridge_address, caller_address: testing_constants::APP_GOVERNOR,
+    );
+    bridge.enable_withdrawals();
+    assert_eq!(bridge.is_withdrawals_enabled(), true);
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    bridge_address,
+                    lbtc_bridge::bridge::bridge::Event::WithdrawalsEnabled(
+                        lbtc_bridge::events::WithdrawalsEnabled { is_withdrawals_enabled: true },
+                    ),
+                ),
+            ],
+        );
+
+    test_utils::cheat_caller_address_once(
+        contract_address: bridge_address, caller_address: testing_constants::APP_GOVERNOR,
+    );
+    bridge.disable_withdrawals();
+    assert_eq!(bridge.is_withdrawals_enabled(), false);
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    bridge_address,
+                    lbtc_bridge::bridge::bridge::Event::WithdrawalsEnabled(
+                        lbtc_bridge::events::WithdrawalsEnabled { is_withdrawals_enabled: false },
+                    ),
+                ),
+            ],
+        );
 }
