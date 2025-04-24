@@ -193,9 +193,9 @@ pub mod consortium {
             threshold_weight: u128,
         ) {
             assert(threshold_weight.is_non_zero(), INVALID_ZERO_WEIGHT_THRESHOLD);
-            assert(public_keys.len() == weights.len(), PUB_KEYS_WEIGHTS_LEN_MISMATCH);
 
             let validator_set_size = public_keys.len();
+            assert(validator_set_size == weights.len(), PUB_KEYS_WEIGHTS_LEN_MISMATCH);
             assert(validator_set_size >= MIN_VALIDATOR_SET_SIZE, INVALID_VALIDATOR_SET_SIZE);
             assert(validator_set_size <= MAX_VALIDATOR_SET_SIZE, INVALID_VALIDATOR_SET_SIZE);
         }
