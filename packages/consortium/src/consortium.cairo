@@ -146,12 +146,11 @@ pub mod consortium {
             for signature in proof {
                 // Check signature.
                 let (r, s) = *signature;
-                if r == 0 && s == 0 {
-                    continue;
-                }
-                let (validator, weight) = validator_set.validators[i].read();
-                if verify_signature_by_address(:r, :s, address: validator, :msg_hash) {
-                    total_weight += weight;
+                if r != 0 || s != 0 {
+                    let (validator, weight) = validator_set.validators[i].read();
+                    if verify_signature_by_address(:r, :s, address: validator, :msg_hash) {
+                        total_weight += weight;
+                    }
                 }
 
                 i += 1;
