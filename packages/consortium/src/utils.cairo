@@ -9,13 +9,33 @@ use starknet::secp256_trait::{Signature, recover_public_key};
 use starknet::secp256k1::Secp256k1Point;
 use starkware_utils::math::utils::u256_from_u32_array;
 
-pub fn is_signature_by_signer(signer: EthAddress, msg_hash: u256, signature: Signature) -> bool {
+// Public functions:
+
+/// Verifies if the specified address signed a signature (with either parity value).
+///
+/// This function tries both `y_parity=true` and `y_parity=false` to validate the signature.
+///
+/// @param r - The r component of the signature
+/// @param s - The s component of the signature
+/// @param address - The Ethereum address of the validator
+/// @param msg_hash - The hash of the message that was signed
+/// @return Whether the signature is valid for the given validator and message
+pub fn verify_signature_by_address(r: u256, s: u256, address: EthAddress, msg_hash: u256) -> bool {
+    // Try with y_parity = true first
+    let signature = Signature { r, s, y_parity: true };
+    if is_signature_by_address(:address, :msg_hash, :signature) {
+        return true;
+    }
+
+    // If that failed, try with y_parity = false
+    let signature = Signature { r, s, y_parity: false };
+    is_signature_by_address(:address, :msg_hash, :signature)
+}
+
+pub fn is_signature_by_address(address: EthAddress, msg_hash: u256, signature: Signature) -> bool {
     if let Option::Some(public_key_point) =
         recover_public_key::<Secp256k1Point>(:msg_hash, :signature) {
-        let address = public_key_point_to_eth_address(:public_key_point);
-        if (address == signer) {
-            return true;
-        }
+        return address == public_key_point_to_eth_address(:public_key_point);
     }
     false
 }
@@ -181,7 +201,6 @@ fn append_u256_u32_limbs(ref arr: Array<u32>, value: u256) {
     arr.append(v1.try_into().expect(SHOULD_FIT_IN_U32));
     arr.append(v0.try_into().expect(SHOULD_FIT_IN_U32));
 }
-
 
 pub fn ensure_uniqueness(ref address_dict: Felt252Dict<bool>, eth_address: EthAddress) {
     let address_felt252 = eth_address.into();

@@ -3,22 +3,22 @@ pub mod consortium {
     use core::dict::Felt252Dict;
     use core::num::traits::Zero;
     use lbtc_consortium::errors::{
-        INVALID_EPOCH, INVALID_PUBLIC_KEY, INVALID_SIGNATURE, INVALID_VALIDATOR_SET_SIZE,
-        INVALID_ZERO_WEIGHT, INVALID_ZERO_WEIGHT_THRESHOLD, NOT_ENOUGH_SIGNATURES,
-        PUB_KEYS_WEIGHTS_LEN_MISMATCH, TOTAL_WEIGHT_UNDER_THRESHOLD, VALIDATORS_ALREADY_INITIALIZED,
-        VALIDATORS_PROOF_LEN_MISMATCH, VALIDATORS_WERE_NOT_INITIALIZED,
+        INVALID_EPOCH, INVALID_PUBLIC_KEY, INVALID_VALIDATOR_SET_SIZE, INVALID_ZERO_WEIGHT,
+        INVALID_ZERO_WEIGHT_THRESHOLD, NOT_ENOUGH_SIGNATURES, PUB_KEYS_WEIGHTS_LEN_MISMATCH,
+        TOTAL_WEIGHT_UNDER_THRESHOLD, VALIDATORS_ALREADY_INITIALIZED, VALIDATORS_PROOF_LEN_MISMATCH,
+        VALIDATORS_WERE_NOT_INITIALIZED,
     };
     use lbtc_consortium::events::ValidatorSetUpdated;
     use lbtc_consortium::interface::{IConsortium, PublicKey, Signature};
     use lbtc_consortium::utils::{
         calculate_sha256_for_set_next_validator_set_paylod, ensure_uniqueness,
-        is_signature_by_signer,
+        verify_signature_by_address,
     };
     use openzeppelin::access::accesscontrol::AccessControlComponent;
     use openzeppelin::introspection::src5::SRC5Component;
     use starknet::eth_address::EthAddress;
     use starknet::eth_signature::public_key_point_to_eth_address;
-    use starknet::secp256_trait::{Secp256Trait, Signature as Secp256Signature};
+    use starknet::secp256_trait::Secp256Trait;
     use starknet::secp256k1::Secp256k1Point;
     use starknet::storage::{
         Map, MutableVecTrait, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
@@ -150,23 +150,10 @@ pub mod consortium {
                     continue;
                 }
                 let (validator, weight) = validator_set.validators[i].read();
-                let signature_y_parity_true = Secp256Signature { r, s, y_parity: true };
-                let is_signed_by_validator = is_signature_by_signer(
-                    signer: validator, :msg_hash, signature: signature_y_parity_true,
-                );
-                // In case the signature with y parity true doesnt belong to the validator, check
-                // signature with y parity false.
-                if !is_signed_by_validator {
-                    let signature_y_parity_false = Secp256Signature { r, s, y_parity: false };
-                    assert(
-                        is_signature_by_signer(
-                            signer: validator, :msg_hash, signature: signature_y_parity_false,
-                        ),
-                        INVALID_SIGNATURE,
-                    );
+                if verify_signature_by_address(:r, :s, address: validator, :msg_hash) {
+                    total_weight += weight;
                 }
 
-                total_weight += weight;
                 i += 1;
             }
 
