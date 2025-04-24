@@ -30,6 +30,7 @@ pub mod consortium {
     use starkware_utils::components::roles::RolesComponent;
     use starkware_utils::components::roles::RolesComponent::InternalTrait as RolesInternal;
 
+    const INITIAL_EPOCH: u64 = 1;
     const MIN_VALIDATOR_SET_SIZE: u32 = 1;
     const MAX_VALIDATOR_SET_SIZE: u32 = 25;
 
@@ -103,7 +104,10 @@ pub mod consortium {
             assert(self.epoch.read().is_zero(), VALIDATORS_ALREADY_INITIALIZED);
             self._validate_new_validator_set(:public_keys, :weights, :threshold_weight);
 
-            self._set_validator_set(epoch: 1, :public_keys, :weights, :threshold_weight);
+            self
+                ._set_validator_set(
+                    epoch: INITIAL_EPOCH, :public_keys, :weights, :threshold_weight,
+                );
         }
 
         fn set_next_validator_set(
