@@ -12,23 +12,25 @@ pub mod consortium {
     use lbtc_consortium::interface::{IConsortium, PublicKey, Signature};
     use lbtc_consortium::utils::{
         calculate_sha256_for_set_next_validator_set_paylod, ensure_uniqueness,
-        verify_signature_by_address,
     };
     use openzeppelin::access::accesscontrol::AccessControlComponent;
     use openzeppelin::introspection::src5::SRC5Component;
     use starknet::eth_address::EthAddress;
     use starknet::eth_signature::public_key_point_to_eth_address;
-    use starknet::secp256_trait::Secp256Trait;
+    use starknet::secp256_trait::{Secp256Trait, Signature as Secp256Signature, recover_public_key};
     use starknet::secp256k1::Secp256k1Point;
     use starknet::storage::{
-        Map, MutableVecTrait, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
-        Vec, VecTrait,
+        Map, StoragePath, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
     };
     use starknet::{ContractAddress, SyscallResultTrait};
     use starkware_utils::components::replaceability::ReplaceabilityComponent;
     use starkware_utils::components::replaceability::ReplaceabilityComponent::InternalReplaceabilityTrait;
     use starkware_utils::components::roles::RolesComponent;
     use starkware_utils::components::roles::RolesComponent::InternalTrait as RolesInternal;
+    use starkware_utils::iterable_map::{
+        IterableMap, IterableMapIntoIterImpl, IterableMapReadAccessImpl, IterableMapTrait,
+        IterableMapWriteAccessImpl,
+    };
 
     const INITIAL_EPOCH: u64 = 1;
     const MIN_VALIDATOR_SET_SIZE: u32 = 1;
@@ -48,8 +50,7 @@ pub mod consortium {
 
     #[starknet::storage_node]
     pub struct ValidatorSet {
-        // Address weight tuples.
-        pub validators: Vec<(EthAddress, u128)>,
+        address_to_weight: IterableMap<EthAddress, u128>,
         // Current threshold for signatures weight to be accepted.
         pub threshold_weight: u128,
     }
@@ -137,26 +138,30 @@ pub mod consortium {
             assert(epoch.is_non_zero(), VALIDATORS_WERE_NOT_INITIALIZED);
 
             let validator_set = self.validator_set_map.entry(epoch);
-            assert(
-                validator_set.validators.len() == proof.len().into(), VALIDATORS_PROOF_LEN_MISMATCH,
-            );
+            let threshold_weight = validator_set.threshold_weight.read();
 
+            let mut address_sig_counter: Felt252Dict<bool> = Default::default();
             let mut total_weight = 0;
-            let mut i = 0;
             for signature in proof {
                 // Check signature.
                 let (r, s) = *signature;
-                if r != 0 || s != 0 {
-                    let (validator, weight) = validator_set.validators[i].read();
-                    if verify_signature_by_address(:r, :s, address: validator, :msg_hash) {
-                        total_weight += weight;
-                    }
+                if r == 0 && s == 0 {
+                    continue;
                 }
 
-                i += 1;
+                if let Some((eth_address, weight)) =
+                    _verify_signature_and_get_validator_weight(:validator_set, :r, :s, :msg_hash) {
+                    // Check if the address is already signed.
+                    ensure_uniqueness(ref address_dict: address_sig_counter, :eth_address);
+                    total_weight += weight;
+                }
+
+                // Early return.
+                if total_weight >= threshold_weight {
+                    break;
+                }
             }
 
-            let threshold_weight = validator_set.threshold_weight.read();
             assert(total_weight >= threshold_weight, NOT_ENOUGH_SIGNATURES);
         }
 
@@ -169,8 +174,7 @@ pub mod consortium {
 
             let mut validators = array![];
             let mut weights = array![];
-            for i in 0..validator_set.validators.len() {
-                let (validator, weight) = validator_set.validators[i].read();
+            for (validator, weight) in validator_set.address_to_weight {
                 validators.append(validator);
                 weights.append(weight);
             }
@@ -224,7 +228,7 @@ pub mod consortium {
 
                 ensure_uniqueness(ref :address_dict, :eth_address);
                 eth_addresses.append(eth_address);
-                validator_set.validators.push((eth_address, weight));
+                validator_set.address_to_weight.write(eth_address, weight);
 
                 total_weight = total_weight + weight;
             }
@@ -244,5 +248,44 @@ pub mod consortium {
                     },
                 );
         }
+    }
+
+    /// Verifies if the signer of a signature (with either parity value) is in `validator_set`.
+    ///
+    /// This function tries both `y_parity=true` and `y_parity=false` to validate the signature.
+    ///
+    /// @param validator_set - map for the validator set.
+    /// @param r - The r component of the signature
+    /// @param s - The s component of the signature
+    /// @param msg_hash - The hash of the message that was signed
+    /// @return address whether the signature is valid and for a validator in the set.
+    fn _verify_signature_and_get_validator_weight(
+        validator_set: StoragePath<ValidatorSet>, r: u256, s: u256, msg_hash: u256,
+    ) -> Option<(EthAddress, u128)> {
+        // Try with y_parity = true first
+        let signature = Secp256Signature { r, s, y_parity: true };
+        let address_weight = _verify_single_signature_and_get_weight(
+            :validator_set, :signature, :msg_hash,
+        );
+        if address_weight.is_some() {
+            return address_weight;
+        }
+
+        // If that failed, try with y_parity = false.
+        let signature = Secp256Signature { r, s, y_parity: false };
+        _verify_single_signature_and_get_weight(:validator_set, :signature, :msg_hash)
+    }
+
+    fn _verify_single_signature_and_get_weight(
+        validator_set: StoragePath<ValidatorSet>, signature: Secp256Signature, msg_hash: u256,
+    ) -> Option<(EthAddress, u128)> {
+        if let Option::Some(public_key_point) =
+            recover_public_key::<Secp256k1Point>(:msg_hash, :signature) {
+            let address = public_key_point_to_eth_address(:public_key_point);
+            if let Option::Some(weight) = validator_set.address_to_weight.read(address) {
+                return Some((address, weight));
+            }
+        }
+        None
     }
 }

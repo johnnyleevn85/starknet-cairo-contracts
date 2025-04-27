@@ -12,13 +12,13 @@ const DEPOSIT_PAYLOAD_LENGTH: usize = 160;
 
 /// Adds the selector prefix to the `deposit_payload`.
 pub fn build_deposit_payload_with_selector(deposit_payload: @ByteArray) -> ByteArray {
+    assert(deposit_payload.len() == DEPOSIT_PAYLOAD_LENGTH, INVALID_DEPOSIT_PAYLOAD_LENGTH);
     // bytes4(keccak256("payload(bytes32,bytes32,uint64,bytes32,uint32)"))
     const DEPOSIT_BTC_ACTION: felt252 = 0xf2e73f7c;
 
     let mut payload: ByteArray = Default::default();
     payload.append_word(word: DEPOSIT_BTC_ACTION, len: U32_IN_BYTES);
     payload.append(other: deposit_payload);
-    assert(payload.len() == DEPOSIT_PAYLOAD_LENGTH + U32_IN_BYTES, INVALID_DEPOSIT_PAYLOAD_LENGTH);
     payload
 }
 
