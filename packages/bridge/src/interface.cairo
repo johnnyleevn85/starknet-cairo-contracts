@@ -10,7 +10,7 @@ pub trait IBridge<TContractState> {
     fn change_dust_fee_rate(ref self: TContractState, new_rate: u128);
     fn mint(
         ref self: TContractState,
-        to_chain: u128,
+        to_chain: u256,
         recipient: ContractAddress,
         amount: u128,
         tx_id: u256,

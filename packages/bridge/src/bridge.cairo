@@ -1,6 +1,6 @@
 #[starknet::contract]
 pub mod bridge {
-    use core::num::traits::Zero;
+    use core::num::traits::{Pow, Zero};
     use core::sha256::compute_sha256_byte_array;
     use lbtc_bascule::interface::{IBasculeDispatcher, IBasculeDispatcherTrait};
     use lbtc_bridge::bitcoin_utils::{
@@ -113,18 +113,25 @@ pub mod bridge {
         self._change_dust_fee_rate(new_rate: DEFAULT_DUST_FEE_RATE);
     }
 
+    // 0x0400000000000000000000000000000000000000000000000000000000000000
+    // This is the identifier that Lombard uses for Starknet.
+    const LOMBARD_STARKNET_IDENTIFIER: u256 = 4 * 16_u256.pow(62);
+
     #[abi(embed_v0)]
     pub impl BridgeImpl of IBridge<ContractState> {
         fn mint(
             ref self: ContractState,
-            to_chain: u128,
+            to_chain: u256,
             recipient: ContractAddress,
             amount: u128,
             tx_id: u256,
             vout: u32,
             proof: Span<Signature>,
         ) {
-            assert(to_chain.into() == get_tx_info().unbox().chain_id, errors::WRONG_CHAIN_ID);
+            assert(
+                to_chain == get_tx_info().unbox().chain_id.into() + LOMBARD_STARKNET_IDENTIFIER,
+                errors::WRONG_CHAIN_ID,
+            );
             assert(recipient.is_non_zero(), errors::INVALID_ZERO_ADDRESS);
             assert(amount.is_non_zero(), errors::INVALID_ZERO_AMOUNT);
             self._validate_and_mint(:amount, :to_chain, :recipient, :tx_id, :vout, :proof);
@@ -296,7 +303,7 @@ pub mod bridge {
         fn _validate_and_mint(
             ref self: ContractState,
             amount: u128,
-            to_chain: u128,
+            to_chain: u256,
             recipient: ContractAddress,
             tx_id: u256,
             vout: u32,
