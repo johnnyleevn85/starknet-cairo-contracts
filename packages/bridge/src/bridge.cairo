@@ -142,7 +142,6 @@ pub mod bridge {
         /// Arguments:
         /// scriptPubkey for output.
         /// Amount of LBTC to burn.
-        ///
         fn redeem(ref self: ContractState, script_pub_key: ByteArray, amount: u128) {
             assert(self.is_withdrawals_enabled.read(), errors::WITHDRAWALS_DISABLED);
 

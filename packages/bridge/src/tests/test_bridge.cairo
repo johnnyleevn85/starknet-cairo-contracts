@@ -4,9 +4,12 @@ use lbtc_bridge::bitcoin_utils::DEFAULT_DUST_FEE_RATE;
 use lbtc_bridge::bridge::bridge;
 use lbtc_bridge::interface::{IBridgeDispatcher, IBridgeDispatcherTrait};
 use lbtc_bridge::utils::{build_deposit_payload, build_deposit_payload_with_selector};
+use lbtc_consortium::interface::{IConsortiumDispatcher, IConsortiumDispatcherTrait};
 use lbtc_testing::utils::bridge::*;
+use lbtc_testing::utils::consortium::init_contract_with_roles as init_consortium_with_roles;
 use snforge_std::{EventSpyAssertionsTrait, spy_events};
 use starkware_utils::math::utils::u256_from_u32_array;
+use starkware_utils_testing::test_utils::cheat_caller_address_once;
 use starkware_utils_testing::{constants as testing_constants, test_utils};
 
 #[test]
@@ -172,3 +175,52 @@ fn test_toggle_withdrawals() {
             ],
         );
 }
+
+#[test]
+fn test_successful_deposit_payload_check_proof() {
+    // Setup:
+    let contract_address = init_consortium_with_roles();
+    let dispatcher = IConsortiumDispatcher { contract_address };
+
+    // Params:
+    let public_key = (
+        0x663730d52c5ae76aa45189e3a007240da11fca011a6ed9eb427ddcd72a806114_u256,
+        0x48f1dc776b895b5c7ab2914437f255b2002001821d271ca9aa2bed6819078c1e_u256,
+    );
+    /// make sure that hash of payload not used before
+    /// need to check new sha256 hash and legacy keccak256 from payload without selector
+    /// 2 checks made to prevent migration of contract state
+    let legacy_payload = build_deposit_payload(
+        to_chain: 0x04000000000000000000000000000000000000000000534e5f5345504f4c4941_u256,
+        recipient: 0x07adab2c6aa4691884d0b4d8ee1877106df238f70814ef1276f96539ca10dd84
+            .try_into()
+            .unwrap(),
+        amount: 10000,
+        tx_id: 0xc267cbbf16f0930753afe02243940607ae67e15d0e3942b216b8900dc54f50b5_u256,
+        vout: 0,
+    );
+
+    let payload: ByteArray = build_deposit_payload_with_selector(deposit_payload: @legacy_payload);
+
+    let payload_hash: u256 = u256_from_u32_array(compute_sha256_byte_array(arr: @payload));
+    let msg_hash = payload_hash;
+    println!("msg_hash: {}", msg_hash);
+
+    assert_eq!(
+        0x6b92e1d08a951b031ab6a54733b8d2dada5b21460fc61fd5cc61d0b20e65332e_u256, payload_hash,
+    );
+    let r = 0x9d94ba8cc5d6746e70d1e570e69e479ccc5e27d3d6fb0a16c8b02eb93290346d_u256;
+    let s = 0x508ffc9e106aaa68d8c684fe66eaada65f1d3daeb85a9e0e4814db2cc2279ff5_u256;
+    let signature = (r, s);
+
+    cheat_caller_address_once(:contract_address, caller_address: testing_constants::APP_GOVERNOR);
+    dispatcher
+        .set_initial_validator_set(
+            public_keys: array![public_key].span(), weights: array![1].span(), threshold_weight: 1,
+        );
+
+    // Test:
+    dispatcher.check_proof(:msg_hash, proof: array![signature].span());
+    // Test passes if `check_proof` did not panic.
+}
+
