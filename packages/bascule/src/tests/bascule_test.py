@@ -74,10 +74,10 @@ async def test_report_deposits_and_check_status(bascule_test_context: dict):
     deposit_ids = [1000, 2000, 3000]
     report_id = 5000
 
-    # Check default status (should be UNREPORTED)
+    # Check default status (should be Unreported)
     for deposit_id in deposit_ids:
         (status,) = await operator.functions["get_deposit_status"].call(deposit_id)
-        assert status.as_dict()["variant"] == "UNREPORTED"
+        assert status.as_dict()["variant"] == "Unreported"
 
     with pytest.raises(Exception, match="ONLY_OPERATOR"):
         await user.functions["report_deposits"].invoke_v3(
@@ -93,7 +93,7 @@ async def test_report_deposits_and_check_status(bascule_test_context: dict):
 
     for deposit_id in deposit_ids:
         (status,) = await operator.functions["get_deposit_status"].call(deposit_id)
-        assert status.as_dict()["variant"] == "REPORTED"
+        assert status.as_dict()["variant"] == "Reported"
 
 
 @pytest.mark.asyncio
@@ -119,4 +119,4 @@ async def test_validate_withdrawal(bascule_test_context: dict):
 
     # Check that it's marked as withdrawn
     (status,) = await validation_consumer.functions["get_deposit_status"].call(deposit_id)
-    assert status.as_dict()["variant"] == "WITHDRAWN"
+    assert status.as_dict()["variant"] == "Withdrawn"

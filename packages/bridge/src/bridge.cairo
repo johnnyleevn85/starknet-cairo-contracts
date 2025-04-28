@@ -117,6 +117,13 @@ pub mod bridge {
     // This is the identifier that Lombard uses for Starknet.
     const LOMBARD_STARKNET_IDENTIFIER: u256 = 4 * 16_u256.pow(62);
 
+    struct FeeDustInfo {
+        amount_after_fee: u128,
+        is_above_fee: bool,
+        dust_limit: u128,
+        is_above_dust: bool,
+    }
+
     #[abi(embed_v0)]
     pub impl BridgeImpl of IBridge<ContractState> {
         fn mint(
@@ -147,15 +154,16 @@ pub mod bridge {
 
             let fee = self.burn_commission.read();
 
-            let (amount_after_fee, is_above_fee, dust_limit, is_above_dust) = self
-                ._calculate_fee_and_dust_limit(script_pub_key: @script_pub_key, :amount, :fee);
+            let FeeDustInfo {
+                amount_after_fee, is_above_fee, dust_limit, is_above_dust,
+            } = self._calculate_fee_and_dust_limit(script_pub_key: @script_pub_key, :amount, :fee);
 
             assert_with_byte_array(is_above_fee, errors::amount_below_dust_limit(:dust_limit));
             assert_with_byte_array(is_above_dust, errors::amount_less_than_commission(:fee));
 
-            // This equivalent to burning `amount_after_fee`, and transfer fee to treasury.
             let caller_address = get_caller_address();
             let token_dispatcher = self.lbtc_token.read();
+            // This equivalent to burning `amount_after_fee`, and transfer fee to treasury.
             token_dispatcher.permissioned_burn(account: caller_address, amount: amount.into());
             token_dispatcher.permissioned_mint(account: self.get_treasury(), amount: fee.into());
 
@@ -232,8 +240,9 @@ pub mod bridge {
             self: @ContractState, script_pub_key: ByteArray, amount: u128,
         ) -> (u128, bool) {
             let fee = self.burn_commission.read();
-            let (amount_after_fee, _, _, is_above_dust) = self
-                ._calculate_fee_and_dust_limit(script_pub_key: @script_pub_key, :amount, :fee);
+            let FeeDustInfo {
+                amount_after_fee, is_above_fee: _, dust_limit: _, is_above_dust,
+            } = self._calculate_fee_and_dust_limit(script_pub_key: @script_pub_key, :amount, :fee);
 
             (amount_after_fee, is_above_dust)
         }
@@ -308,9 +317,9 @@ pub mod bridge {
             vout: u32,
             proof: Span<Signature>,
         ) {
-            /// make sure that hash of payload not used before
-            /// need to check new sha256 hash and legacy keccak256 from payload without selector
-            /// 2 checks made to prevent migration of contract state
+            /// Make sure that hash of payload not used before need to check new sha256 hash and
+            /// legacy keccak256 from payload without selector 2 checks made to prevent migration of
+            /// contract state.
             let legacy_payload = build_deposit_payload(
                 :to_chain, :recipient, :amount, :tx_id, :vout,
             );
@@ -350,12 +359,14 @@ pub mod bridge {
         ///
         fn _calculate_fee_and_dust_limit(
             self: @ContractState, script_pub_key: @ByteArray, amount: u128, fee: u64,
-        ) -> (u128, bool, u128, bool) {
+        ) -> FeeDustInfo {
             let output_type = get_output_type(:script_pub_key);
             assert(output_type != OutputType::UNSUPPORTED, errors::SCRIPT_PUB_KEY_UNSUPPORTED);
 
             if amount <= fee.into() {
-                return (0, false, 0, false);
+                return FeeDustInfo {
+                    amount_after_fee: 0, is_above_fee: false, dust_limit: 0, is_above_dust: false,
+                };
             }
 
             let amount_after_fee = amount - fee.into();
@@ -365,7 +376,7 @@ pub mod bridge {
             );
             let is_above_dust = amount_after_fee > dust_limit;
 
-            (amount_after_fee, true, dust_limit, is_above_dust)
+            FeeDustInfo { amount_after_fee, is_above_fee: true, dust_limit, is_above_dust }
         }
     }
 }

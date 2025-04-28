@@ -1,4 +1,3 @@
-use lbtc_bascule::types::DepositState;
 use starknet::ContractAddress;
 
 
@@ -21,11 +20,20 @@ pub trait IBascule<TContractState> {
 
     fn update_validation_threshold(ref self: TContractState, new_threshold: u128);
     fn set_max_deposits(ref self: TContractState, max_deposits: u32);
-    fn report_deposits(ref self: TContractState, report_id: u256, deposit_ids: Array<u256>);
+    fn report_deposits(ref self: TContractState, report_id: u256, deposit_ids: Span<u256>);
 
     /// View functions
     fn get_validation_threshold(self: @TContractState) -> u128;
     fn get_max_deposits(self: @TContractState) -> u32;
     fn get_validation_consumer(self: @TContractState) -> ContractAddress;
     fn get_deposit_status(self: @TContractState, deposit_id: u256) -> DepositState;
+}
+
+
+#[derive(Copy, Debug, Drop, PartialEq, Serde, starknet::Store)]
+pub enum DepositState {
+    #[default]
+    Unreported,
+    Reported,
+    Withdrawn,
 }

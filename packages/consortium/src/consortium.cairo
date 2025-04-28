@@ -2,12 +2,7 @@
 pub mod consortium {
     use core::dict::Felt252Dict;
     use core::num::traits::Zero;
-    use lbtc_consortium::errors::{
-        INVALID_EPOCH, INVALID_PUBLIC_KEY, INVALID_VALIDATOR_SET_SIZE, INVALID_ZERO_WEIGHT,
-        INVALID_ZERO_WEIGHT_THRESHOLD, NOT_ENOUGH_SIGNATURES, PUB_KEYS_WEIGHTS_LEN_MISMATCH,
-        TOTAL_WEIGHT_UNDER_THRESHOLD, VALIDATORS_ALREADY_INITIALIZED, VALIDATORS_PROOF_LEN_MISMATCH,
-        VALIDATORS_WERE_NOT_INITIALIZED,
-    };
+    use lbtc_consortium::errors::*;
     use lbtc_consortium::events::ValidatorSetUpdated;
     use lbtc_consortium::interface::{IConsortium, PublicKey, Signature};
     use lbtc_consortium::utils::{
@@ -28,8 +23,7 @@ pub mod consortium {
     use starkware_utils::components::roles::RolesComponent;
     use starkware_utils::components::roles::RolesComponent::InternalTrait as RolesInternal;
     use starkware_utils::iterable_map::{
-        IterableMap, IterableMapIntoIterImpl, IterableMapReadAccessImpl, IterableMapTrait,
-        IterableMapWriteAccessImpl,
+        IterableMap, IterableMapIntoIterImpl, IterableMapReadAccessImpl, IterableMapWriteAccessImpl,
     };
 
     const INITIAL_EPOCH: u64 = 1;
@@ -58,7 +52,7 @@ pub mod consortium {
     #[storage]
     struct Storage {
         epoch: u64,
-        validator_set_map: Map<u64, ValidatorSet>,
+        epoch_to_validator_set: Map<u64, ValidatorSet>,
         #[substorage(v0)]
         accesscontrol: AccessControlComponent::Storage,
         #[substorage(v0)]
@@ -100,11 +94,10 @@ pub mod consortium {
             threshold_weight: u128,
         ) {
             self.roles.only_app_governor();
-
-            // Validations.
-            assert(self.epoch.read().is_zero(), VALIDATORS_ALREADY_INITIALIZED);
-            self._validate_new_validator_set(:public_keys, :weights, :threshold_weight);
-
+            self
+                ._validate_new_validator_set(
+                    epoch: INITIAL_EPOCH, :public_keys, :weights, :threshold_weight,
+                );
             self
                 ._set_validator_set(
                     epoch: INITIAL_EPOCH, :public_keys, :weights, :threshold_weight,
@@ -121,9 +114,7 @@ pub mod consortium {
             proof: Span<Signature>,
         ) {
             // Validations.
-            let cur_epoch = self.epoch.read();
-            assert(cur_epoch + 1 == epoch, INVALID_EPOCH);
-            self._validate_new_validator_set(:public_keys, :weights, :threshold_weight);
+            self._validate_new_validator_set(:epoch, :public_keys, :weights, :threshold_weight);
 
             let msg_hash = calculate_sha256_for_set_next_validator_set_paylod(
                 :epoch, :public_keys, :weights, :threshold_weight, :height,
@@ -137,26 +128,27 @@ pub mod consortium {
             let epoch = self.get_current_epoch();
             assert(epoch.is_non_zero(), VALIDATORS_WERE_NOT_INITIALIZED);
 
-            let validator_set = self.validator_set_map.entry(epoch);
+            let validator_set = self.epoch_to_validator_set.entry(epoch);
             let threshold_weight = validator_set.threshold_weight.read();
 
-            let mut address_sig_counter: Felt252Dict<bool> = Default::default();
+            let mut address_set: Felt252Dict<bool> = Default::default();
             let mut total_weight = 0;
             for signature in proof {
                 // Check signature.
-                let (r, s) = *signature;
-                if r == 0 && s == 0 {
+                if *signature == (0, 0) {
                     continue;
                 }
 
                 if let Some((eth_address, weight)) =
-                    _verify_signature_and_get_validator_weight(:validator_set, :r, :s, :msg_hash) {
+                    _verify_signature_and_get_validator_weight(
+                        :validator_set, :signature, :msg_hash,
+                    ) {
                     // Check if the address is already signed.
-                    ensure_uniqueness(ref address_dict: address_sig_counter, :eth_address);
+                    ensure_uniqueness(ref :address_set, :eth_address, error: DUPLICATED_SIGNATURE);
                     total_weight += weight;
                 }
 
-                // Early return.
+                // Early break.
                 if total_weight >= threshold_weight {
                     break;
                 }
@@ -168,7 +160,7 @@ pub mod consortium {
         fn get_validator_set(
             self: @ContractState, epoch: u64,
         ) -> (Span<EthAddress>, Span<u128>, u128) {
-            let validator_set = self.validator_set_map.entry(epoch);
+            let validator_set = self.epoch_to_validator_set.entry(epoch);
             let threshold_weight = validator_set.threshold_weight.read();
             assert(threshold_weight.is_non_zero(), INVALID_EPOCH);
 
@@ -191,12 +183,15 @@ pub mod consortium {
     impl ConsortiumPrivateImpl of ConsortiumPrivateTrait {
         fn _validate_new_validator_set(
             ref self: ContractState,
+            epoch: u64,
             public_keys: Span<PublicKey>,
             weights: Span<u128>,
             threshold_weight: u128,
         ) {
+            let cur_epoch = self.epoch.read();
+            let next_epoch = cur_epoch + 1;
+            assert(next_epoch == epoch, INVALID_EPOCH);
             assert(threshold_weight.is_non_zero(), INVALID_ZERO_WEIGHT_THRESHOLD);
-
             let validator_set_size = public_keys.len();
             assert(validator_set_size == weights.len(), PUB_KEYS_WEIGHTS_LEN_MISMATCH);
             assert(validator_set_size >= MIN_VALIDATOR_SET_SIZE, INVALID_VALIDATOR_SET_SIZE);
@@ -210,10 +205,10 @@ pub mod consortium {
             weights: Span<u128>,
             threshold_weight: u128,
         ) {
-            let mut validator_set = self.validator_set_map.entry(epoch);
+            let mut validator_set = self.epoch_to_validator_set.entry(epoch);
             let mut total_weight = 0;
             let mut eth_addresses: Array<EthAddress> = Default::default();
-            let mut address_dict: Felt252Dict<bool> = Default::default();
+            let mut address_set: Felt252Dict<bool> = Default::default();
 
             for i in 0..public_keys.len() {
                 let weight = *weights[i];
@@ -226,7 +221,7 @@ pub mod consortium {
                     .expect(INVALID_PUBLIC_KEY);
                 let eth_address = public_key_point_to_eth_address(secp_point);
 
-                ensure_uniqueness(ref :address_dict, :eth_address);
+                ensure_uniqueness(ref :address_set, :eth_address, error: DUPLICATED_VALIDATOR);
                 eth_addresses.append(eth_address);
                 validator_set.address_to_weight.write(eth_address, weight);
 
@@ -260,11 +255,12 @@ pub mod consortium {
     /// @param msg_hash - The hash of the message that was signed
     /// @return address whether the signature is valid and for a validator in the set.
     fn _verify_signature_and_get_validator_weight(
-        validator_set: StoragePath<ValidatorSet>, r: u256, s: u256, msg_hash: u256,
+        validator_set: StoragePath<ValidatorSet>, signature: @Signature, msg_hash: u256,
     ) -> Option<(EthAddress, u128)> {
+        let (r, s) = *signature;
         // Try with y_parity = true first
         let signature = Secp256Signature { r, s, y_parity: true };
-        let address_weight = _verify_single_signature_and_get_weight(
+        let address_weight = _verify_signature_and_get_validator_weight_inner(
             :validator_set, :signature, :msg_hash,
         );
         if address_weight.is_some() {
@@ -273,19 +269,15 @@ pub mod consortium {
 
         // If that failed, try with y_parity = false.
         let signature = Secp256Signature { r, s, y_parity: false };
-        _verify_single_signature_and_get_weight(:validator_set, :signature, :msg_hash)
+        _verify_signature_and_get_validator_weight_inner(:validator_set, :signature, :msg_hash)
     }
 
-    fn _verify_single_signature_and_get_weight(
+    fn _verify_signature_and_get_validator_weight_inner(
         validator_set: StoragePath<ValidatorSet>, signature: Secp256Signature, msg_hash: u256,
     ) -> Option<(EthAddress, u128)> {
-        if let Option::Some(public_key_point) =
-            recover_public_key::<Secp256k1Point>(:msg_hash, :signature) {
-            let address = public_key_point_to_eth_address(:public_key_point);
-            if let Option::Some(weight) = validator_set.address_to_weight.read(address) {
-                return Some((address, weight));
-            }
-        }
-        None
+        let public_key_point = recover_public_key::<Secp256k1Point>(:msg_hash, :signature)?;
+        let address = public_key_point_to_eth_address(:public_key_point);
+        let weight = validator_set.address_to_weight.read(address)?;
+        Some((address, weight))
     }
 }

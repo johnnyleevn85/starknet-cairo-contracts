@@ -1,6 +1,6 @@
 #[starknet::contract]
 pub mod bascule {
-    use lbtc_bascule::types::DepositState;
+    use lbtc_bascule::interface::{DepositState, IBascule};
     use lbtc_bascule::{errors, events};
     use openzeppelin::access::accesscontrol::AccessControlComponent;
     use openzeppelin::introspection::src5::SRC5Component;
@@ -61,8 +61,8 @@ pub mod bascule {
         /// particular, you MUST make sure that validate_withdrawal is called with a
         /// correct withdrawal amount.
         validate_threshold: u128,
-        // Only validation_consumer can validate withdrawals (and thus remove deposits from
-        // the history)
+        /// Only validation_consumer can validate withdrawals (and thus remove deposits from the
+        /// history).
         validation_consumer: ContractAddress,
         /// Mapping that tracks deposits on a different chain that can be used to
         /// withdraw the corresponding funds on this chain.
@@ -70,7 +70,6 @@ pub mod bascule {
         /// NOTE: The deposit identifier should be a hash with enough information to
         /// uniquely identify the deposit transaction on the source chain and the
         /// recipient, amount, and chain-id on this chain.
-        /// See README for more.
         deposit_status: Map<u256, DepositState>,
     }
 
@@ -109,7 +108,6 @@ pub mod bascule {
         self.max_deposits.write(max_deposits);
         self.validation_consumer.write(validation_consumer);
     }
-    use lbtc_bascule::interface::IBascule;
 
     #[abi(embed_v0)]
     pub impl BasculeImpl of IBascule<ContractState> {
@@ -120,7 +118,7 @@ pub mod bascule {
         // corresponds to this withdrawal request. A deposit can only be withdrawn
         // once.
         //
-        // Emits {WithdrawalValidated}.
+        // Emits {WithdrawalValidated, WithdrawalNotValidated}.
         fn validate_withdrawal(ref self: ContractState, deposit_id: u256, withdrawal_amount: u128) {
             self.pausable.assert_not_paused();
             assert(
@@ -130,8 +128,8 @@ pub mod bascule {
 
             let deposit_id_entry = self.deposit_status.entry(deposit_id);
             let status = deposit_id_entry.read();
-            if status == DepositState::REPORTED {
-                deposit_id_entry.write(DepositState::WITHDRAWN);
+            if status == DepositState::Reported {
+                deposit_id_entry.write(DepositState::Withdrawn);
                 self
                     .emit(
                         events::WithdrawalValidated {
@@ -143,7 +141,7 @@ pub mod bascule {
 
             // Already withdrawn
             assert_with_byte_array(
-                status != DepositState::WITHDRAWN,
+                status != DepositState::Withdrawn,
                 errors::already_withdrawn(:deposit_id, :withdrawal_amount),
             );
 
@@ -159,22 +157,15 @@ pub mod bascule {
             // withdrawal is below the threshold, so we allow the withdrawal without
             // additional on-chain validation.
             //
-            // This contract records withdrawals
-            // even when the validation threshold is raised.
-            deposit_id_entry.write(DepositState::WITHDRAWN);
-            self
-                .emit(
-                    events::WithdrawalNotValidated {
-                        deposit_id: deposit_id, withdrawal_amount: withdrawal_amount,
-                    },
-                )
+            // This contract records withdrawals even when the validation threshold is raised.
+            deposit_id_entry.write(DepositState::Withdrawn);
+            self.emit(events::WithdrawalNotValidated { deposit_id, withdrawal_amount })
         }
         /// Updates the threshold for checking validation withdrawals.
         /// Only app governors can call this function.
         ///
         /// Lowering the threshold means we validate more deposits;
-        /// Increasing the threshold means we validate fewer
-        /// deposits;
+        /// Increasing the threshold means we validate fewer deposits;
         ///
         /// # Emits
         /// * `UpdateValidateThreshold` with the old and new thresholds.
@@ -186,12 +177,7 @@ pub mod bascule {
             assert(old_threshold != new_threshold, errors::SAME_VALIDATION_THRESHOLD);
 
             self.validate_threshold.write(new_threshold);
-            self
-                .emit(
-                    events::UpdateValidateThreshold {
-                        old_threshold: old_threshold, new_threshold: new_threshold,
-                    },
-                );
+            self.emit(events::UpdateValidateThreshold { old_threshold, new_threshold });
         }
 
         fn set_max_deposits(ref self: ContractState, max_deposits: u32) {
@@ -203,53 +189,46 @@ pub mod bascule {
 
 
         //  Report that a series of deposit has happened.
-        //  May only be invoked by the deposit reporter.
-        //  @param reportId Unique identifier corresponding to the report.
-        //  @param depositIDs Unique identifiers of the deposits on another chain.
+        //  May only be invoked by the operator role
+        //  @param report_id Unique identifier corresponding to the report.
+        //  @param deposit_ids Unique identifiers of the deposits on another chain.
         //  Emits {DepositsReported}.
-        fn report_deposits(ref self: ContractState, report_id: u256, deposit_ids: Array<u256>) {
+        fn report_deposits(ref self: ContractState, report_id: u256, deposit_ids: Span<u256>) {
             self.pausable.assert_not_paused();
             self.roles.only_operator();
 
             let deposit_ids_len = deposit_ids.len();
             assert(deposit_ids_len <= self.get_max_deposits().into(), errors::BAD_DEPOSIT_REPORT);
 
-            for i in 0..deposit_ids_len {
-                let deposit_id = *deposit_ids[i];
-                let deposit_id_entry = self.deposit_status.entry(deposit_id);
-                if deposit_id_entry.read() == DepositState::UNREPORTED {
-                    deposit_id_entry.write(DepositState::REPORTED);
+            for deposit_id in deposit_ids {
+                let deposit_id_entry = self.deposit_status.entry(*deposit_id);
+                if deposit_id_entry.read() == DepositState::Unreported {
+                    deposit_id_entry.write(DepositState::Reported);
                 } else {
                     // Only warn instead of reverting.
-                    self.emit(events::DepositAlreadyReported { deposit_id: deposit_id })
+                    self.emit(events::DepositAlreadyReported { deposit_id: *deposit_id })
                 }
             }
-            self
-                .emit(
-                    events::DepositsReported {
-                        report_id: report_id, num_deposits: deposit_ids_len,
-                    },
-                )
+            self.emit(events::DepositsReported { report_id, num_deposits: deposit_ids_len })
         }
 
-        /// View functions
+        // View functions
 
-        ///  Returns the minimum threshold for validating withdrawals.
+        /// Returns the minimum threshold for validating withdrawals.
         fn get_validation_threshold(self: @ContractState) -> u128 {
             self.validate_threshold.read()
         }
-        /// Get maximum number of deposits that can be reported at once.
+        /// Returns the maximum number of deposits that can be reported at once.
         fn get_max_deposits(self: @ContractState) -> u32 {
             self.max_deposits.read()
         }
 
-        /// Get the validation consumer.
+        /// Returns the validation consumer.
         fn get_validation_consumer(self: @ContractState) -> ContractAddress {
             self.validation_consumer.read()
         }
 
-
-        /// Get the deposit status.
+        /// Returns the deposit status.
         fn get_deposit_status(self: @ContractState, deposit_id: u256) -> DepositState {
             self.deposit_status.entry(deposit_id).read()
         }

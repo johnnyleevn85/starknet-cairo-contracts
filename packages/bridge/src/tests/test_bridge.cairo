@@ -202,13 +202,9 @@ fn test_successful_deposit_payload_check_proof() {
 
     let payload: ByteArray = build_deposit_payload_with_selector(deposit_payload: @legacy_payload);
 
-    let payload_hash: u256 = u256_from_u32_array(compute_sha256_byte_array(arr: @payload));
-    let msg_hash = payload_hash;
-    println!("msg_hash: {}", msg_hash);
+    let msg_hash: u256 = u256_from_u32_array(compute_sha256_byte_array(arr: @payload));
 
-    assert_eq!(
-        0x6b92e1d08a951b031ab6a54733b8d2dada5b21460fc61fd5cc61d0b20e65332e_u256, payload_hash,
-    );
+    assert_eq!(0x6b92e1d08a951b031ab6a54733b8d2dada5b21460fc61fd5cc61d0b20e65332e_u256, msg_hash);
     let r = 0x9d94ba8cc5d6746e70d1e570e69e479ccc5e27d3d6fb0a16c8b02eb93290346d_u256;
     let s = 0x508ffc9e106aaa68d8c684fe66eaada65f1d3daeb85a9e0e4814db2cc2279ff5_u256;
     let signature = (r, s);

@@ -45,12 +45,12 @@ fn test_report_deposits() {
     let bascule_address = init_bascule_with_roles();
     let bascule = IBasculeDispatcher { contract_address: bascule_address };
 
-    let deposit_ids = array![1_u256, 2_u256, 3_u256];
+    let deposit_ids = array![1_u256, 2_u256, 3_u256].span();
     let deposit_ids_len = deposit_ids.len();
     let report_id = 123_u256;
     let mut spy = spy_events();
     cheat_caller_address_once(bascule_address, testing_constants::OPERATOR);
-    bascule.report_deposits(report_id, deposit_ids);
+    bascule.report_deposits(:report_id, :deposit_ids);
     spy
         .assert_emitted(
             @array![

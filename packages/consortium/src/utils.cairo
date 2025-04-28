@@ -1,7 +1,7 @@
 use core::dict::Felt252Dict;
 use core::num::traits::Pow;
 use core::sha256::compute_sha256_u32_array;
-use lbtc_consortium::errors::DUPLICATED_PUBLIC_KEY;
+use core::traits::DivRem;
 use lbtc_consortium::interface::PublicKey;
 use starknet::eth_address::EthAddress;
 use starknet::eth_signature::public_key_point_to_eth_address;
@@ -90,7 +90,7 @@ pub fn calculate_sha256_for_set_next_validator_set_paylod(
     append_pub_keys(ref arr: payload, public_keys: public_keys);
 
     // Weights length.
-    append_weights(ref arr: payload, values: weights);
+    append_weights(ref arr: payload, :weights);
 
     u256_from_u32_array(
         compute_sha256_u32_array(input: payload, last_input_word: 0, last_input_num_bytes: 0),
@@ -126,29 +126,28 @@ fn append_pub_keys(ref arr: Array<u32>, public_keys: Span<PublicKey>) {
         // - v1 contains: last byte of x + first 31 bytes of y.
         // - v2 contains: last byte of y + 31 zero bytes (padding).
         let prefix = 0x04_u256;
-        let x_high_bytes = *x / 2_u256.pow(8);
-        let x_low_bytes = *x % 2_u256.pow(8);
-        let y_high_bytes = *y / 2_u256.pow(8);
-        let y_low_bytes = *y % 2_u256.pow(8);
+
+        let (x_high_bytes, x_low_byte) = DivRem::div_rem(*x, 256);
+        let (y_high_bytes, y_low_byte) = DivRem::div_rem(*y, 256);
 
         let v0 = prefix * 2_u256.pow(248) + x_high_bytes;
-        let v1 = x_low_bytes * 2_u256.pow(248) + y_high_bytes;
-        let v2 = y_low_bytes * 2_u256.pow(248);
+        let v1 = x_low_byte * 2_u256.pow(248) + y_high_bytes;
+        let v2 = y_low_byte * 2_u256.pow(248);
 
-        append_u256_u32_limbs(ref arr, v0);
-        append_u256_u32_limbs(ref arr, v1);
-        append_u256_u32_limbs(ref arr, v2);
+        append_u256(ref arr, v0);
+        append_u256(ref arr, v1);
+        append_u256(ref arr, v2);
     }
 }
 
-fn append_weights(ref arr: Array<u32>, values: Span<u128>) {
-    append_u128_as_u256(ref arr, values.len().into());
-    for value in values {
-        append_u128_as_u256(ref arr, (*value).into());
+fn append_weights(ref arr: Array<u32>, weights: Span<u128>) {
+    append_u128_as_u256(ref arr, weights.len().into());
+    for weight in weights {
+        append_u128_as_u256(ref arr, value: (*weight).into());
     }
 }
 
-fn append_u128_as_u256(ref arr: Array<u32>, value: u128) {
+fn append_u128(ref arr: Array<u32>, value: u128) {
     const two_pow_32: u128 = 2_u128.pow(32);
     const two_pow_64: u128 = 2_u128.pow(64);
     const two_pow_96: u128 = 2_u128.pow(96);
@@ -159,53 +158,35 @@ fn append_u128_as_u256(ref arr: Array<u32>, value: u128) {
     let v2 = (value / two_pow_64) % two_pow_32;
     let v3 = (value / two_pow_96) % two_pow_32;
 
-    // high
-    arr.append(0);
-    arr.append(0);
-    arr.append(0);
-    arr.append(0);
-    // low
     arr.append(v3.try_into().expect(SHOULD_FIT_IN_U32));
     arr.append(v2.try_into().expect(SHOULD_FIT_IN_U32));
     arr.append(v1.try_into().expect(SHOULD_FIT_IN_U32));
     arr.append(v0.try_into().expect(SHOULD_FIT_IN_U32));
 }
 
-fn append_u256_u32_limbs(ref arr: Array<u32>, value: u256) {
-    const two_pow_32: u256 = 2_u256.pow(32);
-    const two_pow_64: u256 = 2_u256.pow(64);
-    const two_pow_96: u256 = 2_u256.pow(96);
-    const two_pow_128: u256 = 2_u256.pow(128);
-    const two_pow_160: u256 = 2_u256.pow(160);
-    const two_pow_192: u256 = 2_u256.pow(192);
-    const two_pow_224: u256 = 2_u256.pow(224);
-
-    // Each u32 chunk is extracted by masking with (mod) and subtracting higher powers.
-    let v0 = value % two_pow_32;
-    let v1 = (value / two_pow_32) % two_pow_32;
-    let v2 = (value / two_pow_64) % two_pow_32;
-    let v3 = (value / two_pow_96) % two_pow_32;
-    let v4 = (value / two_pow_128) % two_pow_32;
-    let v5 = (value / two_pow_160) % two_pow_32;
-    let v6 = (value / two_pow_192) % two_pow_32;
-    let v7 = (value / two_pow_224) % two_pow_32;
-
+fn append_u128_as_u256(ref arr: Array<u32>, value: u128) {
     // high
-    arr.append(v7.try_into().expect(SHOULD_FIT_IN_U32));
-    arr.append(v6.try_into().expect(SHOULD_FIT_IN_U32));
-    arr.append(v5.try_into().expect(SHOULD_FIT_IN_U32));
-    arr.append(v4.try_into().expect(SHOULD_FIT_IN_U32));
+    arr.append(0);
+    arr.append(0);
+    arr.append(0);
+    arr.append(0);
     // low
-    arr.append(v3.try_into().expect(SHOULD_FIT_IN_U32));
-    arr.append(v2.try_into().expect(SHOULD_FIT_IN_U32));
-    arr.append(v1.try_into().expect(SHOULD_FIT_IN_U32));
-    arr.append(v0.try_into().expect(SHOULD_FIT_IN_U32));
+    append_u128(ref arr, value);
 }
 
-pub fn ensure_uniqueness(ref address_dict: Felt252Dict<bool>, eth_address: EthAddress) {
+fn append_u256(ref arr: Array<u32>, value: u256) {
+    // high
+    append_u128(ref arr, value.high);
+    // low
+    append_u128(ref arr, value.low);
+}
+
+pub fn ensure_uniqueness(
+    ref address_set: Felt252Dict<bool>, eth_address: EthAddress, error: felt252,
+) {
     let address_felt252 = eth_address.into();
-    let is_address_exist = address_dict.get(address_felt252);
+    let is_address_exist = address_set.get(address_felt252);
     // Validate no duplication.
-    assert(!is_address_exist, DUPLICATED_PUBLIC_KEY);
-    address_dict.insert(address_felt252, true);
+    assert(!is_address_exist, error);
+    address_set.insert(address_felt252, true);
 }
