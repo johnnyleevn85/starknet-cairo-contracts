@@ -329,16 +329,13 @@ pub mod bridge {
             );
 
             let payload_hash: u256 = u256_from_u32_array(compute_sha256_byte_array(arr: @payload));
-            let deposit_id: u256 = compute_keccak(arr: @legacy_payload);
-            if self.is_payload_used(:payload_hash) {
-                core::panic_with_felt252(errors::PAYLOAD_ALREADY_USED);
-            }
+            assert(!self.is_payload_used(:payload_hash), errors::PAYLOAD_ALREADY_USED);
             self.used_payloads.write(payload_hash, true);
-            self.used_payloads.write(deposit_id, true);
             let consortium = self.consortium.read();
             consortium.check_proof(msg_hash: payload_hash, :proof);
 
             // Confirm deposit against Bascule
+            let deposit_id: u256 = compute_keccak(arr: @legacy_payload);
             let bascule = self.bascule.read();
             bascule.validate_withdrawal(:deposit_id, withdrawal_amount: amount);
 
