@@ -1,6 +1,11 @@
 use starknet::ContractAddress;
 
 #[derive(Debug, Drop, PartialEq, starknet::Event)]
+pub struct BridgeInitialized {
+    pub lbtc_token: ContractAddress,
+}
+
+#[derive(Debug, Drop, PartialEq, starknet::Event)]
 pub struct ConsortiumChanged {
     pub old_consortium: ContractAddress,
     pub new_consortium: ContractAddress,

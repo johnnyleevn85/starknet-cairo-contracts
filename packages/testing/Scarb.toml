@@ -16,6 +16,7 @@ fmt.workspace = true
 scarb.workspace = true
 
 [dependencies]
+lbtc_bridge = {path = "../bridge"}
 starknet.workspace = true
 openzeppelin.workspace = true
 starkware_utils.workspace = true

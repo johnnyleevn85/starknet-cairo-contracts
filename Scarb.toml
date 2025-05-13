@@ -5,6 +5,7 @@ members = [
     "packages/consortium",
     "packages/bridge",
     "packages/vault",
+    "packages/manual_strategy",
     "packages/testing",
 ]
 
@@ -22,12 +23,12 @@ keywords = [
 
 [workspace.dependencies]
 starknet = "2.11.2"
-snforge_std = "0.38.3"
+snforge_std = "0.41.0"
 assert_macros = "2.11.2"
-openzeppelin = "1.0.0"
-openzeppelin_testing = "2.0.0"
-starkware_utils = { git ="https://github.com/starkware-libs/starkware-starknet-utils", branch="main" }
-starkware_utils_testing = { git="https://github.com/starkware-libs/starkware-starknet-utils", branch="main" }
+openzeppelin = { git = "https://github.com/OpenZeppelin/cairo-contracts", rev = "bc66fb75b9d9f118d8951ae1afcd71cf2b54102b"}
+openzeppelin_testing = "3.0.0"
+starkware_utils = { git ="https://github.com/starkware-libs/starkware-starknet-utils", rev = "6ccae10fbfc8f30994de18e62cc538b367844a75" }
+starkware_utils_testing = { git="https://github.com/starkware-libs/starkware-starknet-utils", rev = "6ccae10fbfc8f30994de18e62cc538b367844a75" }
 
 [workspace.tool.fmt]
 sort-module-level-items = true

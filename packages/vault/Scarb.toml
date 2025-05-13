@@ -19,6 +19,7 @@ scarb.workspace = true
 starknet.workspace = true
 openzeppelin.workspace = true
 starkware_utils.workspace = true
+lbtc_manual_strategy = {path = "../manual_strategy" }
 
 [dev-dependencies]
 assert_macros.workspace = true

@@ -15,7 +15,7 @@ ROLE_NAMES = [
     "security_admin",
     "security_agent",
     "user",
-    "validation_consumer",
+    "strategy",
 ]
 
 
@@ -38,6 +38,13 @@ async def vault_test_context(starknet_test_utils: StarknetTestUtils) -> dict:
         constructor_args=[
             roles["governance_admin"].address,
             30,  # initial_upgrade_delay
+            roles["token_admin"].address,
+            roles["strategy"].address,
+            1000,  # deposit_limit
+            roles["token_admin"].address,  # used for fee recipient
+            400,  # deposit_fee
+            200,  # withdraw_fee
+            250,  # protocol_fee
         ],
     )
     await deploy_result.wait_for_acceptance()

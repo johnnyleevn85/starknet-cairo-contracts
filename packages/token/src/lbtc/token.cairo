@@ -5,7 +5,6 @@ mod lbtc {
     use openzeppelin::access::accesscontrol::AccessControlComponent;
     use openzeppelin::introspection::src5::SRC5Component;
     use openzeppelin::token::erc20::ERC20Component;
-    use openzeppelin::token::erc20::interface::IERC20Metadata;
     use starknet::storage::{Map, StorageMapReadAccess, StorageMapWriteAccess};
     use starknet::{ContractAddress, get_caller_address};
     use starkware_utils::components::pausable::PausableComponent;
@@ -37,6 +36,9 @@ mod lbtc {
 
     #[abi(embed_v0)]
     impl PausableImpl = PausableComponent::PausableImpl<ContractState>;
+
+    #[abi(embed_v0)]
+    impl ERC20MetadataImpl = ERC20Component::ERC20MetadataImpl<ContractState>;
 
     // Internal
     impl ERC20InternalImpl = ERC20Component::InternalImpl<ContractState>;
@@ -86,7 +88,9 @@ mod lbtc {
         "LBTC"
     }
 
-    const DECIMALS: u8 = 8;
+    impl ImmutableConfigImpl of ERC20Component::ImmutableConfig {
+        const DECIMALS: u8 = 8;
+    }
 
     #[constructor]
     fn constructor(
@@ -99,21 +103,6 @@ mod lbtc {
         self.replaceability.initialize(:upgrade_delay);
         self.erc20.initializer(NAME(), SYMBOL());
         self._add_permitted_minters(:permitted_minters);
-    }
-
-    #[abi(embed_v0)]
-    impl ERC20MetadataImpl of IERC20Metadata<ContractState> {
-        fn decimals(self: @ContractState) -> u8 {
-            DECIMALS
-        }
-
-        fn name(self: @ContractState) -> ByteArray {
-            self.erc20.name()
-        }
-
-        fn symbol(self: @ContractState) -> ByteArray {
-            self.erc20.symbol()
-        }
     }
 
     impl HooksImpl<> of ERC20Component::ERC20HooksTrait<ContractState> {

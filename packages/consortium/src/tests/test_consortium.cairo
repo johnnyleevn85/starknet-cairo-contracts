@@ -6,7 +6,9 @@ use lbtc_consortium::interface::{
     IConsortiumDispatcher, IConsortiumDispatcherTrait, IConsortiumSafeDispatcher,
     IConsortiumSafeDispatcherTrait, Signature,
 };
-use lbtc_testing::utils::consortium::init_contract_with_roles;
+use lbtc_consortium::utils::calculate_sha256_for_set_next_validator_set_paylod;
+use lbtc_testing::utils::consortium::{generate_public_key, init_contract_with_roles};
+use snforge_std::signature::secp256k1_curve::{Secp256k1CurveKeyPairImpl, Secp256k1CurveSignerImpl};
 use starknet::eth_address::EthAddress;
 use starkware_utils_testing::constants::APP_GOVERNOR;
 use starkware_utils_testing::test_utils::{
@@ -133,6 +135,64 @@ fn test_illegal_initial_validator_set() {
             public_keys: array![].span(), weights: array![].span(), :threshold_weight,
         );
     assert_panic_with_felt_error(:result, expected_error: INVALID_EPOCH);
+}
+
+#[test]
+fn test_successful_next_validator_set() {
+    // Setup:
+    let contract_address = init_contract_with_roles();
+    let dispatcher = IConsortiumDispatcher { contract_address };
+
+    // Params:
+    let epoch = 2;
+    let threshold_weight = 7;
+    let height = 14641;
+    let pk_2 = (
+        0x5db8a04eda553ca964383c6abe44de2ac85df22fb61062dbdc33ccef06d81ea0_u256,
+        0x2926c0d2ba062d0b02bd23631242169239e0b4509990c04304717d510727a300_u256,
+    );
+    let address_2: EthAddress = 0x0000000000000000000000004076832c496fbc4f2576f497ff9b697d114174d9
+        .try_into()
+        .unwrap();
+    let address_3: EthAddress = 0x0000000000000000000000009d224c7b54eaa798ea9f0c4dbc93d47ba73a46ab
+        .try_into()
+        .unwrap();
+    let pk_3 = (
+        0xd9bee4a028efa3eaca7134e953bad6378aa4085e7e7887de7ef249e735ef156d,
+        0x83f08fa5fbb65fed7b736b61247bbd522f1d03b5fbdda7d4b83519ea11c67319,
+    );
+    let public_keys = array![pk_2, pk_3].span();
+    let weights = array![10, 5].span();
+    let secret_key = 0x21a30c0bdaa3b425e17a062bfdf5b8ecaed4e2d3ab4b30b0774472d4621081d9_u256;
+
+    // Test:
+    let (public_key, key_pair) = generate_public_key(:secret_key);
+    cheat_caller_address_once(:contract_address, caller_address: APP_GOVERNOR);
+    dispatcher
+        .set_initial_validator_set(
+            public_keys: array![public_key].span(), weights: array![1].span(), threshold_weight: 1,
+        );
+
+    let msg_hash = calculate_sha256_for_set_next_validator_set_paylod(
+        :epoch, :public_keys, :weights, :threshold_weight, :height,
+    );
+    let (r, s) = key_pair.sign(msg_hash).unwrap();
+    dispatcher
+        .set_next_validator_set(
+            :epoch,
+            :public_keys,
+            :weights,
+            :threshold_weight,
+            :height,
+            proof: array![(r, s)].span(),
+        );
+
+    // Check:
+    assert_eq!(dispatcher.get_current_epoch(), 2);
+    assert_eq!(
+        dispatcher.get_validator_set(epoch: 2),
+        (array![address_2, address_3].span(), array![10, 5].span(), threshold_weight),
+    );
 }
 
 #[test]

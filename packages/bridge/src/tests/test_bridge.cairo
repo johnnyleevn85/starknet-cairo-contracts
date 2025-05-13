@@ -220,3 +220,41 @@ fn test_successful_deposit_payload_check_proof() {
     // Test passes if `check_proof` did not panic.
 }
 
+fn test_calculate_unstake_request_amount() {
+    let bridge_address = init_bridge_with_roles();
+    let bridge = IBridgeDispatcher { contract_address: bridge_address };
+
+    // Test 1:
+    // This `script_pub_key` was taken from:
+    // https://etherscan.io/tx/0x8ec3474737cff92ee35bcda61cd215e12f36cdc8aff0f399e6576beead96d2cf
+    let mut script_pub_key: ByteArray = Default::default();
+    script_pub_key
+        .append_word(0x5120bbc0b6e1493ef28d47c14cf5deac3210fee748d57f6fe77ecaa58db0ed, 31);
+    script_pub_key.append_word(0x1e1285, 3);
+    let (amount_after_fee, is_above_dust) = bridge
+        .calculate_unstake_request_amount(:script_pub_key, amount: 20000);
+    assert_eq!(is_above_dust, true);
+    assert_eq!(amount_after_fee, 19999);
+
+    // Test 2:
+    // This `script_pub_key` was taken from
+    // https://etherscan.io/tx/0x95be457ca836d7d6baf233453b5fc3d317df2e986baac5b8330921dac289fb52.
+    let mut script_pub_key: ByteArray = Default::default();
+    script_pub_key.append_word(0x00141882fd00f4c211282d9bab64650676c1c9ed2cb4, 22);
+    let (amount_after_fee, is_above_dust) = bridge
+        .calculate_unstake_request_amount(:script_pub_key, amount: 300);
+    assert_eq!(is_above_dust, false);
+    assert_eq!(amount_after_fee, 299);
+
+    // Test 3:
+    // This `script_pub_key` was taken from:
+    // https://etherscan.io/tx/0x8ec3474737cff92ee35bcda61cd215e12f36cdc8aff0f399e6576beead96d2cf
+    let mut script_pub_key: ByteArray = Default::default();
+    script_pub_key
+        .append_word(0x5120bbc0b6e1493ef28d47c14cf5deac3210fee748d57f6fe77ecaa58db0ed, 31);
+    script_pub_key.append_word(0x1e1285, 3);
+    let (amount_after_fee, is_above_dust) = bridge
+        .calculate_unstake_request_amount(:script_pub_key, amount: 1);
+    assert_eq!(is_above_dust, false);
+    assert_eq!(amount_after_fee, 0);
+}
