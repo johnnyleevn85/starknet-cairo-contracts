@@ -38,7 +38,6 @@ async def bridge_test_context(starknet_test_utils: StarknetTestUtils) -> dict:
         constructor_args=[
             roles["governance_admin"].address,
             30,  # initial_upgrade_delay
-            roles["governance_admin"].address,  # TODO change to lbtc_token
             roles["governance_admin"].address,  # TODO change to bascule
             roles["governance_admin"].address,  # TODO change to consortium
             roles["governance_admin"].address,  # TODO change to treasury

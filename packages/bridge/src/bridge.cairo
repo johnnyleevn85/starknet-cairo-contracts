@@ -83,6 +83,7 @@ pub mod bridge {
         #[flat]
         ReplaceabilityEvent: ReplaceabilityComponent::Event,
         BasculeChanged: events::BasculeChanged,
+        BridgeInitialized: events::BridgeInitialized,
         ConsortiumChanged: events::ConsortiumChanged,
         TreasuryChanged: events::TreasuryChanged,
         BurnCommissionChanged: events::BurnCommissionChanged,
@@ -97,7 +98,6 @@ pub mod bridge {
         ref self: ContractState,
         governance_admin: ContractAddress,
         upgrade_delay: u64,
-        lbtc_token: ContractAddress,
         bascule: ContractAddress,
         consortium: ContractAddress,
         treasury: ContractAddress,
@@ -105,7 +105,6 @@ pub mod bridge {
     ) {
         self.roles.initialize(:governance_admin);
         self.replaceability.initialize(:upgrade_delay);
-        self._set_lbtc_token_address(:lbtc_token);
         self._set_bascule_address(new_bascule: bascule);
         self._set_consortium_address(new_consortium: consortium);
         self._set_treasury_address(new_treasury: treasury);
@@ -126,6 +125,13 @@ pub mod bridge {
 
     #[abi(embed_v0)]
     pub impl BridgeImpl of IBridge<ContractState> {
+        fn initialize(ref self: ContractState, lbtc_token: ContractAddress) {
+            self.roles.only_app_governor();
+            assert(self.lbtc_token.read().contract_address.is_zero(), errors::ALREADY_INITIALIZED);
+            self._set_lbtc_token_address(:lbtc_token);
+            self.emit(events::BridgeInitialized { lbtc_token });
+        }
+
         fn mint(
             ref self: ContractState,
             to_chain: u256,
