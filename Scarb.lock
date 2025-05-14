@@ -2,6 +2,17 @@
 version = 1
 
 [[package]]
+name = "deployer"
+version = "0.1.0"
+dependencies = [
+ "lbtc_token",
+ "openzeppelin",
+ "openzeppelin_testing",
+ "sncast_std",
+ "snforge_std",
+]
+
+[[package]]
 name = "lbtc_bascule"
 version = "0.1.0"
 dependencies = [
@@ -199,6 +210,12 @@ source = "git+https://github.com/OpenZeppelin/cairo-contracts?rev=bc66fb75b9d9f1
 name = "openzeppelin_utils"
 version = "2.0.0-alpha.0"
 source = "git+https://github.com/OpenZeppelin/cairo-contracts?rev=bc66fb75b9d9f118d8951ae1afcd71cf2b54102b#bc66fb75b9d9f118d8951ae1afcd71cf2b54102b"
+
+[[package]]
+name = "sncast_std"
+version = "0.41.0"
+source = "registry+https://scarbs.xyz/"
+checksum = "sha256:0884539863cd2b802eec9bcaecdb810fe130969e766f178d1e42220ddf65344d"
 
 [[package]]
 name = "snforge_scarb_plugin"
