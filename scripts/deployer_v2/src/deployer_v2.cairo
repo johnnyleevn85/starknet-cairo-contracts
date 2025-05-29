@@ -1,3 +1,4 @@
+// use sncast_std::invoke;
 use sncast_std::{declare, deploy, DeclareResultTrait, get_nonce, FeeSettingsTrait};
 use openzeppelin::utils::serde::SerializedAppend;
 use starknet::ContractAddress;
@@ -13,6 +14,7 @@ pub const TREASURY_2: ContractAddress = 0x02551b1f37dAD720a72ABeFc954428a0457158
 pub const GOVERNANCE_ADMIN: ContractAddress = MULTISIG_ACCOUNT;
 pub const PERMITTED_MINTER: ContractAddress = 0x18fb2fcd0f285174a0aa6dc2f8b6bd3b5020ead1f90ed29e45a0e5d874121a9.try_into().unwrap();
 pub const UPGRADE_DELAY: u64 = 0;
+pub const MAX_DEPOSITS: u64 = 100;
 pub const BURN_COMMISSION: u64 = 1000;
 
 fn deploy_contract(name: ByteArray, calldata: Array<felt252>, unique: bool) -> ContractAddress {
@@ -59,31 +61,51 @@ fn main() {
 
     // let salt = 0x3;
 
-    // Deploy lbtc
-    let mut bridge_calldata = array![];
-    bridge_calldata.append_serde(GOVERNANCE_ADMIN); // Governance admin
-    bridge_calldata.append_serde(UPGRADE_DELAY); // Upgrade delay
-    bridge_calldata.append_serde(GOVERNANCE_ADMIN); // Bascule
-    bridge_calldata.append_serde(GOVERNANCE_ADMIN); // Consortium
-    bridge_calldata.append_serde(TREASURY_1); // Treasury
-    bridge_calldata.append_serde(BURN_COMMISSION); // Burn commission
-    let bridge_address = deploy_contract("bridge", bridge_calldata, true);
+    // Deploy bascule
+    let mut bascule_calldata = array![];
+    bascule_calldata.append_serde(GOVERNANCE_ADMIN); // Governance admin
+    bascule_calldata.append_serde(UPGRADE_DELAY); // Upgrade delay
+    bascule_calldata.append_serde(MAX_DEPOSITS); // Max deposits
+    let bascule_address = deploy_contract("bascule", bascule_calldata, true);
+
+    // Deploy consortium
+    let mut consortium_calldata = array![];
+    consortium_calldata.append_serde(GOVERNANCE_ADMIN); // Governance admin
+    consortium_calldata.append_serde(UPGRADE_DELAY); // Upgrade delay
+    let consortium_address = deploy_contract("consortium", consortium_calldata, true);
 
     // Deploy lbtc
     let mut lbtc_calldata = array![];
     lbtc_calldata.append_serde(GOVERNANCE_ADMIN); // Governance admin
-    lbtc_calldata.append_serde(array![bridge_address]); // Pemitted minters
     lbtc_calldata.append_serde(UPGRADE_DELAY); // Upgrade delay
     let _lbtc_address = deploy_contract("lbtc", lbtc_calldata, true);
 
-    // // Change treasury
+    // Deploy bridge
+    let mut bridge_calldata = array![];
+    bridge_calldata.append_serde(GOVERNANCE_ADMIN); // Governance admin
+    bridge_calldata.append_serde(UPGRADE_DELAY); // Upgrade delay
+    bridge_calldata.append_serde(bascule_address); // Bascule
+    bridge_calldata.append_serde(consortium_address); // Consortium
+    bridge_calldata.append_serde(TREASURY_1); // Treasury
+    bridge_calldata.append_serde(BURN_COMMISSION); // Burn commission
+    let _bridge_address = deploy_contract("bridge", bridge_calldata, true);
+
+    // // Set LBTC token on the bridge - but this should be done by governance admin (multisig)
     // let invoke_nonce = get_nonce('pending');
     // let mut invoke_calldata = array![];
-    // invoke_calldata.append_serde(TREASURY_2); // New treasury
-    // let invoke_result = invoke(bridge_address, selector!("change_treasury"), invoke_calldata, fee_settings, Option::Some(invoke_nonce),)
+    // invoke_calldata.append_serde(lbtc_address); // New treasury
+    // let invoke_result = invoke(bridge_address, selector!("initialize"), invoke_calldata, FeeSettingsTrait::estimate(), Option::Some(invoke_nonce),)
     //     .expect('map invoke failed');
     // assert(invoke_result.transaction_hash != 0, invoke_result.transaction_hash);
 
+    // ToDO:
+    // 0. bascule: add app admin role to governance admin
+    // 1. bascule: set bridge as token admin
+    // 2. bascule: set deposit reporter as token operator
+    // 3. consortium: set ValSet
+    // 4. lbtc: add app admin role to governance admin
+    // 5. lbtc: set bridge as permitted minter -> token admin role
+    // 6. 
 
     println!("Deploy contracts: DONE");
 }

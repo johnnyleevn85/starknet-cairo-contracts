@@ -23,4 +23,6 @@ casm = true
 build-external-contracts = [
     "lbtc_token::lbtc::token::lbtc",
     "lbtc_bridge::bridge::bridge",
+    "lbtc_bascule::bascule::bascule",
+    "lbtc_consortium::consortium::consortium",
 ]

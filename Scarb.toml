@@ -8,6 +8,7 @@ members = [
     "packages/manual_strategy",
     "packages/testing",
     "scripts/deployer",
+    "scripts/deployer_v2",
 ]
 
 
