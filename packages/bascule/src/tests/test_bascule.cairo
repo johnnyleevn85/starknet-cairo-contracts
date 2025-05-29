@@ -17,8 +17,15 @@ fn test_bascule_constructor() {
 fn test_update_validation_threshold() {
     let bascule_address = init_bascule_with_roles();
     let bascule = IBasculeDispatcher { contract_address: bascule_address };
-    let old_threshold = bascule.get_validation_threshold();
-    let new_threshold = old_threshold + 10;
+    let new_threshold = bascule.get_validation_threshold() + 10;
+
+    cheat_caller_address_once(bascule_address, testing_constants::TOKEN_ADMIN);
+    bascule.update_validation_threshold(new_threshold);
+
+    let updated_threshold = bascule.get_validation_threshold();
+    assert_eq!(updated_threshold, new_threshold);
+
+    let new_threshold = bascule.get_validation_threshold() - 10;
 
     cheat_caller_address_once(bascule_address, testing_constants::APP_GOVERNOR);
     bascule.update_validation_threshold(new_threshold);

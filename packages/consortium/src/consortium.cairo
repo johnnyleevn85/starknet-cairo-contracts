@@ -6,7 +6,7 @@ pub mod consortium {
     use lbtc_consortium::events::ValidatorSetUpdated;
     use lbtc_consortium::interface::{IConsortium, PublicKey, Signature};
     use lbtc_consortium::utils::{
-        calculate_sha256_for_set_next_validator_set_paylod, ensure_uniqueness,
+        calculate_sha256_for_set_next_validator_set_paylod, insert_if_unique,
     };
     use openzeppelin::access::accesscontrol::AccessControlComponent;
     use openzeppelin::introspection::src5::SRC5Component;
@@ -26,7 +26,6 @@ pub mod consortium {
         IterableMap, IterableMapIntoIterImpl, IterableMapReadAccessImpl, IterableMapWriteAccessImpl,
     };
 
-    const INITIAL_EPOCH: u64 = 1;
     const MIN_VALIDATOR_SET_SIZE: u32 = 1;
     const MAX_VALIDATOR_SET_SIZE: u32 = 25;
 
@@ -89,19 +88,16 @@ pub mod consortium {
     pub impl ConsortiumImpl of IConsortium<ContractState> {
         fn set_initial_validator_set(
             ref self: ContractState,
+            epoch: u64,
             public_keys: Span<PublicKey>,
             weights: Span<u128>,
             threshold_weight: u128,
         ) {
             self.roles.only_app_governor();
-            self
-                ._validate_new_validator_set(
-                    epoch: INITIAL_EPOCH, :public_keys, :weights, :threshold_weight,
-                );
-            self
-                ._set_validator_set(
-                    epoch: INITIAL_EPOCH, :public_keys, :weights, :threshold_weight,
-                );
+            assert(epoch.is_non_zero(), INVALID_EPOCH);
+            assert(self.epoch.read().is_zero(), VALIDATORS_SET_ALREADY_SET);
+            self._validate_new_validator_set(:public_keys, :weights, :threshold_weight);
+            self._set_validator_set(:epoch, :public_keys, :weights, :threshold_weight);
         }
 
         fn set_next_validator_set(
@@ -113,8 +109,11 @@ pub mod consortium {
             height: u128,
             proof: Span<Signature>,
         ) {
+            let cur_epoch = self.epoch.read();
+            let next_epoch = cur_epoch + 1;
+            assert(next_epoch == epoch, INVALID_EPOCH);
             // Validations.
-            self._validate_new_validator_set(:epoch, :public_keys, :weights, :threshold_weight);
+            self._validate_new_validator_set(:public_keys, :weights, :threshold_weight);
 
             let msg_hash = calculate_sha256_for_set_next_validator_set_paylod(
                 :epoch, :public_keys, :weights, :threshold_weight, :height,
@@ -144,8 +143,10 @@ pub mod consortium {
                         :validator_set, :signature, :msg_hash,
                     ) {
                     // Check if the address is already signed.
-                    ensure_uniqueness(ref :address_set, :eth_address, error: DUPLICATED_SIGNATURE);
-                    total_weight += weight;
+                    let is_unique = insert_if_unique(ref :address_set, :eth_address);
+                    if is_unique {
+                        total_weight += weight;
+                    }
                 }
 
                 // Early break.
@@ -183,14 +184,10 @@ pub mod consortium {
     impl ConsortiumPrivateImpl of ConsortiumPrivateTrait {
         fn _validate_new_validator_set(
             ref self: ContractState,
-            epoch: u64,
             public_keys: Span<PublicKey>,
             weights: Span<u128>,
             threshold_weight: u128,
         ) {
-            let cur_epoch = self.epoch.read();
-            let next_epoch = cur_epoch + 1;
-            assert(next_epoch == epoch, INVALID_EPOCH);
             assert(threshold_weight.is_non_zero(), INVALID_ZERO_WEIGHT_THRESHOLD);
             let validator_set_size = public_keys.len();
             assert(validator_set_size == weights.len(), PUB_KEYS_WEIGHTS_LEN_MISMATCH);
@@ -221,7 +218,7 @@ pub mod consortium {
                     .expect(INVALID_PUBLIC_KEY);
                 let eth_address = public_key_point_to_eth_address(secp_point);
 
-                ensure_uniqueness(ref :address_set, :eth_address, error: DUPLICATED_VALIDATOR);
+                assert(insert_if_unique(ref :address_set, :eth_address), DUPLICATED_VALIDATOR);
                 eth_addresses.append(eth_address);
                 validator_set.address_to_weight.write(eth_address, weight);
 

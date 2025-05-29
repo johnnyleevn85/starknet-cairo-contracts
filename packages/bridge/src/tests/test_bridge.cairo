@@ -212,7 +212,10 @@ fn test_successful_deposit_payload_check_proof() {
     cheat_caller_address_once(:contract_address, caller_address: testing_constants::APP_GOVERNOR);
     dispatcher
         .set_initial_validator_set(
-            public_keys: array![public_key].span(), weights: array![1].span(), threshold_weight: 1,
+            epoch: 1,
+            public_keys: array![public_key].span(),
+            weights: array![1].span(),
+            threshold_weight: 1,
         );
 
     // Test:

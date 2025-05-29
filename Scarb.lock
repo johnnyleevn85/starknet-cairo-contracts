@@ -54,6 +54,7 @@ dependencies = [
 name = "lbtc_manual_strategy"
 version = "0.1.0"
 dependencies = [
+ "lbtc_testing",
  "openzeppelin",
  "openzeppelin_testing",
  "snforge_std",
@@ -77,6 +78,7 @@ dependencies = [
 name = "lbtc_token"
 version = "0.1.0"
 dependencies = [
+ "lbtc_testing",
  "openzeppelin",
  "openzeppelin_testing",
  "snforge_std",
@@ -89,6 +91,8 @@ name = "lbtc_vault"
 version = "0.1.0"
 dependencies = [
  "lbtc_manual_strategy",
+ "lbtc_testing",
+ "lbtc_token",
  "openzeppelin",
  "openzeppelin_testing",
  "snforge_std",

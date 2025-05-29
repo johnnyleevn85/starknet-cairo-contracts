@@ -15,31 +15,46 @@ ROLE_NAMES = [
     "security_admin",
     "security_agent",
     "user",
-    "validation_consumer",
 ]
+
+ROLES = None  # Initialize global variable
+
+
+@pytest_asyncio.fixture(scope="session", autouse=True)
+async def setup_global_roles(starknet_test_utils: StarknetTestUtils):
+    global ROLES
+    ROLES = {name: starknet_test_utils.accounts[i] for i, name in enumerate(ROLE_NAMES)}
 
 
 @pytest_asyncio.fixture(scope="session")
-async def bascule_test_context(starknet_test_utils: StarknetTestUtils) -> dict:
-    roles = {name: starknet_test_utils.accounts[i] for i, name in enumerate(ROLE_NAMES)}
-
+async def bascule_declaration_context() -> dict:
+    # Declaration part - done once per session
     compiled_contract_casm = load_contract(f"{LBTC_BASCULE}.compiled_contract_class")
     compiled_contract = load_contract(f"{LBTC_BASCULE}.contract_class")
     declare_result = await Contract.declare_v3(
-        account=roles["governance_admin"],
+        account=ROLES["governance_admin"],
         compiled_contract=compiled_contract,
         compiled_contract_casm=compiled_contract_casm,
         auto_estimate=True,
     )
     await declare_result.wait_for_acceptance()
 
+    return {
+        "declare_result": declare_result,
+    }
+
+
+@pytest_asyncio.fixture(scope="function")
+async def bascule_test_context(bascule_declaration_context: dict) -> dict:
+    declare_result = bascule_declaration_context["declare_result"]
+
+    # Deployment part - fresh for each test
     deploy_result = await declare_result.deploy_v3(
         auto_estimate=True,
         constructor_args=[
-            roles["governance_admin"].address,
+            ROLES["governance_admin"].address,
             30,  # initial_upgrade_delay
             50,  # initial_max_deposits
-            roles["validation_consumer"].address,
         ],
     )
     await deploy_result.wait_for_acceptance()
@@ -55,12 +70,12 @@ async def bascule_test_context(starknet_test_utils: StarknetTestUtils) -> dict:
         role: Contract(
             address=contract.address, abi=abi, provider=account, cairo_version=cairo_version
         )
-        for role, account in roles.items()
+        for role, account in ROLES.items()
     }
 
-    await grant_roles(contracts_by_role=contracts_by_role, roles=roles)
+    await grant_roles(contracts_by_role=contracts_by_role, roles=ROLES)
+
     return {
         "contract": contract,
         "contracts_by_role": contracts_by_role,
-        "roles": roles,
     }

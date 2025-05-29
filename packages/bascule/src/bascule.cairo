@@ -4,17 +4,18 @@ pub mod bascule {
     use lbtc_bascule::{errors, events};
     use openzeppelin::access::accesscontrol::AccessControlComponent;
     use openzeppelin::introspection::src5::SRC5Component;
+    use starknet::ContractAddress;
     use starknet::event::EventEmitter;
     use starknet::storage::{
         Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
     };
-    use starknet::{ContractAddress, get_caller_address};
     use starkware_utils::components::pausable::PausableComponent;
     use starkware_utils::components::pausable::PausableComponent::InternalTrait as PausableInternal;
     use starkware_utils::components::replaceability::ReplaceabilityComponent;
     use starkware_utils::components::replaceability::ReplaceabilityComponent::InternalReplaceabilityTrait;
     use starkware_utils::components::roles::RolesComponent;
     use starkware_utils::components::roles::RolesComponent::InternalTrait as RolesInternal;
+    use starkware_utils::components::roles::interface::{IRoles, TOKEN_ADMIN};
     use starkware_utils::errors::assert_with_byte_array;
 
 
@@ -61,9 +62,6 @@ pub mod bascule {
         /// particular, you MUST make sure that validate_withdrawal is called with a
         /// correct withdrawal amount.
         validate_threshold: u128,
-        /// Only validation_consumer can validate withdrawals (and thus remove deposits from the
-        /// history).
-        validation_consumer: ContractAddress,
         /// Mapping that tracks deposits on a different chain that can be used to
         /// withdraw the corresponding funds on this chain.
         ///
@@ -101,12 +99,10 @@ pub mod bascule {
         governance_admin: ContractAddress,
         upgrade_delay: u64,
         max_deposits: u32,
-        validation_consumer: ContractAddress,
     ) {
         self.roles.initialize(:governance_admin);
         self.replaceability.initialize(:upgrade_delay);
         self.max_deposits.write(max_deposits);
-        self.validation_consumer.write(validation_consumer);
     }
 
     #[abi(embed_v0)]
@@ -121,10 +117,7 @@ pub mod bascule {
         // Emits {WithdrawalValidated, WithdrawalNotValidated}.
         fn validate_withdrawal(ref self: ContractState, deposit_id: u256, withdrawal_amount: u128) {
             self.pausable.assert_not_paused();
-            assert(
-                get_caller_address() == self.validation_consumer.read(),
-                errors::UNAUTHORIZED_WITHDRAWAL_CALLER,
-            );
+            self.roles.only_token_admin();
 
             let deposit_id_entry = self.deposit_status.entry(deposit_id);
             let status = deposit_id_entry.read();
@@ -171,10 +164,17 @@ pub mod bascule {
         /// * `UpdateValidateThreshold` with the old and new thresholds.
         fn update_validation_threshold(ref self: ContractState, new_threshold: u128) {
             self.pausable.assert_not_paused();
-            self.roles.only_app_governor();
-
             let old_threshold = self.get_validation_threshold();
             assert(old_threshold != new_threshold, errors::SAME_VALIDATION_THRESHOLD);
+
+            if new_threshold < old_threshold {
+                self.roles.only_app_governor();
+            } else {
+                self.roles.only_token_admin();
+                // Renounce the validation guardian role. This ensures the caller doesn't
+                // have peristent privileges to effectively disable validation.
+                self.roles.renounce(role: TOKEN_ADMIN);
+            }
 
             self.validate_threshold.write(new_threshold);
             self.emit(events::UpdateValidateThreshold { old_threshold, new_threshold });
@@ -221,11 +221,6 @@ pub mod bascule {
         /// Returns the maximum number of deposits that can be reported at once.
         fn get_max_deposits(self: @ContractState) -> u32 {
             self.max_deposits.read()
-        }
-
-        /// Returns the validation consumer.
-        fn get_validation_consumer(self: @ContractState) -> ContractAddress {
-            self.validation_consumer.read()
         }
 
         /// Returns the deposit status.

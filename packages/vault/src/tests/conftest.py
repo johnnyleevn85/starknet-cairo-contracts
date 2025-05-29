@@ -45,6 +45,7 @@ async def vault_test_context(starknet_test_utils: StarknetTestUtils) -> dict:
             400,  # deposit_fee
             200,  # withdraw_fee
             250,  # protocol_fee
+            [(0, 500, 1000)],  # fee performance
         ],
     )
     await deploy_result.wait_for_acceptance()

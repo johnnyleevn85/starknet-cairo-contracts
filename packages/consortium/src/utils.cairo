@@ -181,12 +181,14 @@ fn append_u256(ref arr: Array<u32>, value: u256) {
     append_u128(ref arr, value.low);
 }
 
-pub fn ensure_uniqueness(
-    ref address_set: Felt252Dict<bool>, eth_address: EthAddress, error: felt252,
-) {
+pub fn insert_if_unique(ref address_set: Felt252Dict<bool>, eth_address: EthAddress) -> bool {
     let address_felt252 = eth_address.into();
-    let is_address_exist = address_set.get(address_felt252);
     // Validate no duplication.
-    assert(!is_address_exist, error);
+    let is_address_exist = address_set.get(address_felt252);
+    if is_address_exist {
+        return false;
+    }
+
     address_set.insert(address_felt252, true);
+    true
 }
