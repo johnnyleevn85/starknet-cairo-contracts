@@ -38,3 +38,6 @@ casm = false
 unstable-add-statements-functions-debug-info = true
 unstable-add-statements-code-locations-debug-info = true
 inlining-strategy = "avoid"
+
+[[test]]
+name = "lbtc_testing_unittest"

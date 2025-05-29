@@ -29,6 +29,7 @@ pub mod bridge {
         IMintableTokenDispatcher, IMintableTokenDispatcherTrait,
     };
     use starkware_utils::math::utils::u256_from_u32_array;
+    use starkware_utils::utils::AddToStorage;
 
     component!(path: AccessControlComponent, storage: accesscontrol, event: AccessControlEvent);
     component!(path: PausableComponent, storage: pausable, event: PausableEvent);
@@ -67,6 +68,7 @@ pub mod bridge {
         is_withdrawals_enabled: bool,
         used_payloads: Map<u256, bool>,
         dust_fee_rate: u128,
+        btc_locked_amount: u128,
     }
 
     #[event]
@@ -116,6 +118,8 @@ pub mod bridge {
     // This is the identifier that Lombard uses for Starknet.
     const LOMBARD_STARKNET_IDENTIFIER: u256 = 4 * 16_u256.pow(62);
 
+    const MAX_FEE: u64 = 100000;
+
     struct FeeDustInfo {
         amount_after_fee: u128,
         is_above_fee: bool,
@@ -164,11 +168,17 @@ pub mod bridge {
                 amount_after_fee, is_above_fee, dust_limit, is_above_dust,
             } = self._calculate_fee_and_dust_limit(script_pub_key: @script_pub_key, :amount, :fee);
 
-            assert_with_byte_array(is_above_fee, errors::amount_below_dust_limit(:dust_limit));
-            assert_with_byte_array(is_above_dust, errors::amount_less_than_commission(:fee));
+            assert_with_byte_array(is_above_fee, errors::amount_less_than_commission(:fee));
+            assert_with_byte_array(is_above_dust, errors::amount_below_dust_limit(:dust_limit));
 
             let caller_address = get_caller_address();
             let token_dispatcher = self.lbtc_token.read();
+
+            // Validate there are enough locked btc on the other side
+            let locked_amount = self.btc_locked_amount.read();
+            assert(locked_amount >= amount, errors::REDEEM_LIMIT_EXCEEDED);
+            self.btc_locked_amount.write(locked_amount - amount);
+
             // This equivalent to burning `amount_after_fee`, and transfer fee to treasury.
             token_dispatcher.permissioned_burn(account: caller_address, amount: amount.into());
             token_dispatcher.permissioned_mint(account: self.get_treasury(), amount: fee.into());
@@ -285,6 +295,7 @@ pub mod bridge {
         }
 
         fn _set_burn_commission(ref self: ContractState, new_burn_commission: u64) {
+            assert(new_burn_commission <= MAX_FEE, errors::INVALID_BURN_COMMISSION);
             let old_burn_commission = self.burn_commission.read();
             self.burn_commission.write(new_burn_commission);
             self.emit(events::BurnCommissionChanged { old_burn_commission, new_burn_commission });
@@ -323,9 +334,6 @@ pub mod bridge {
             vout: u32,
             proof: Span<Signature>,
         ) {
-            /// Make sure that hash of payload not used before need to check new sha256 hash and
-            /// legacy keccak256 from payload without selector 2 checks made to prevent migration of
-            /// contract state.
             let legacy_payload = build_deposit_payload(
                 :to_chain, :recipient, :amount, :tx_id, :vout,
             );
@@ -346,6 +354,7 @@ pub mod bridge {
             bascule.validate_withdrawal(:deposit_id, withdrawal_amount: amount);
 
             // Mint `amount` to `recipient`.
+            self.btc_locked_amount.add_and_write(amount);
             let lbtc_token = self.lbtc_token.read();
             lbtc_token.permissioned_mint(account: recipient, amount: amount.into());
 

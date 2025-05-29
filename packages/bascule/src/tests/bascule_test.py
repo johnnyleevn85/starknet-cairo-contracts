@@ -36,6 +36,7 @@ async def test_set_max_deposits(bascule_test_context: dict):
 @pytest.mark.asyncio
 async def test_get_and_update_validation_threshold(bascule_test_context: dict):
     app_governor = bascule_test_context["contracts_by_role"]["app_governor"]
+    token_admin = bascule_test_context["contracts_by_role"]["token_admin"]
     user = bascule_test_context["contracts_by_role"]["user"]
 
     # Check default threshold (should be 0)
@@ -43,7 +44,7 @@ async def test_get_and_update_validation_threshold(bascule_test_context: dict):
     assert threshold == 0
 
     # Update the threshold
-    invocation = await app_governor.functions["update_validation_threshold"].invoke_v3(
+    invocation = await token_admin.functions["update_validation_threshold"].invoke_v3(
         100, auto_estimate=True
     )
     await invocation.wait_for_acceptance()
@@ -61,7 +62,7 @@ async def test_get_and_update_validation_threshold(bascule_test_context: dict):
 async def test_update_threshold_rejects_unauthorized(bascule_test_context: dict):
     user = bascule_test_context["contracts_by_role"]["user"]
 
-    with pytest.raises(Exception, match="ONLY_APP_GOVERNOR"):
+    with pytest.raises(Exception, match="ONLY_TOKEN_ADMIN"):
         await user.functions["update_validation_threshold"].invoke_v3(42, auto_estimate=True)
 
 
@@ -83,7 +84,6 @@ async def test_report_deposits_and_check_status(bascule_test_context: dict):
         await user.functions["report_deposits"].invoke_v3(
             report_id, deposit_ids, auto_estimate=True
         )
-        await user.functions["update_validation_threshold"].invoke_v3(42, auto_estimate=True)
 
     # Report deposits
     invocation = await operator.functions["report_deposits"].invoke_v3(
@@ -99,7 +99,7 @@ async def test_report_deposits_and_check_status(bascule_test_context: dict):
 @pytest.mark.asyncio
 async def test_validate_withdrawal(bascule_test_context: dict):
     operator = bascule_test_context["contracts_by_role"]["operator"]
-    validation_consumer = bascule_test_context["contracts_by_role"]["validation_consumer"]
+    token_admin = bascule_test_context["contracts_by_role"]["token_admin"]
 
     deposit_id = 20_000
     report_id = 4_000
@@ -112,11 +112,11 @@ async def test_validate_withdrawal(bascule_test_context: dict):
     ).wait_for_acceptance()
 
     # Validate withdrawal
-    invocation = await validation_consumer.functions["validate_withdrawal"].invoke_v3(
+    invocation = await token_admin.functions["validate_withdrawal"].invoke_v3(
         deposit_id, 100, auto_estimate=True
     )
     await invocation.wait_for_acceptance()
 
     # Check that it's marked as withdrawn
-    (status,) = await validation_consumer.functions["get_deposit_status"].call(deposit_id)
+    (status,) = await token_admin.functions["get_deposit_status"].call(deposit_id)
     assert status.as_dict()["variant"] == "Withdrawn"

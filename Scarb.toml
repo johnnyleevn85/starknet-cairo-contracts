@@ -30,6 +30,7 @@ openzeppelin = { git = "https://github.com/OpenZeppelin/cairo-contracts", rev = 
 openzeppelin_testing = "3.0.0"
 starkware_utils = { git ="https://github.com/starkware-libs/starkware-starknet-utils", rev = "6ccae10fbfc8f30994de18e62cc538b367844a75" }
 starkware_utils_testing = { git="https://github.com/starkware-libs/starkware-starknet-utils", rev = "6ccae10fbfc8f30994de18e62cc538b367844a75" }
+sncast_std = "0.41.0"
 
 [workspace.tool.fmt]
 sort-module-level-items = true

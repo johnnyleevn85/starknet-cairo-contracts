@@ -15,7 +15,7 @@ ROLE_NAMES = [
     "security_admin",
     "security_agent",
     "user",
-    "validation_consumer",
+    "token_address",
 ]
 
 
@@ -38,6 +38,7 @@ async def manual_strategy_test_context(starknet_test_utils: StarknetTestUtils) -
         constructor_args=[
             roles["governance_admin"].address,
             30,  # initial_upgrade_delay
+            roles["token_address"].address,
         ],
     )
     await deploy_result.wait_for_acceptance()

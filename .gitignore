@@ -68,4 +68,5 @@ coverage_report
 
 #python
 venv/
+local_env/
 __pycache__

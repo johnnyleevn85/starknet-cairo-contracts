@@ -15,7 +15,6 @@ ROLE_NAMES = [
     "security_admin",
     "security_agent",
     "user",
-    "validation_consumer",
 ]
 
 

@@ -5,15 +5,12 @@ use starkware_utils_testing::{constants as testing_constants, test_utils};
 
 pub mod constants {
     use super::*;
-
-    pub const PERMITTED_MINTER: ContractAddress = 'PERMITTED_MINTER'.try_into().unwrap();
     pub const UPGRADE_DELAY: u64 = 0;
 }
 
 fn deploy_lbtc_token() -> ContractAddress {
     let mut calldata = array![];
     calldata.append_serde(testing_constants::GOVERNANCE_ADMIN);
-    calldata.append_serde(array![constants::PERMITTED_MINTER]);
     calldata.append_serde(constants::UPGRADE_DELAY);
     declare_and_deploy("lbtc", calldata)
 }

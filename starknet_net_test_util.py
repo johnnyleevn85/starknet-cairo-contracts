@@ -112,6 +112,7 @@ class Starknet:
         self,
         port: int = 5050,
         seed: int = 500,
+        initial_balance: int = 10**30,
         starknet_chain_id: StarknetChainId = StarknetChainId.SEPOLIA,
     ):
         """
@@ -121,9 +122,16 @@ class Starknet:
         self.err_stream = tempfile.NamedTemporaryFile()
         self.port = port
         self.seed = seed
+        self.initial_balance = initial_balance
         self.starknet_chain_id = starknet_chain_id
+        command = (
+            "starknet-devnet "
+            f"--port {self.port} "
+            f"--seed {self.seed} "
+            f"--initial-balance {self.initial_balance}"
+        )
         self.starknet_proc = subprocess.Popen(
-            f"starknet-devnet --port {self.port} --seed {self.seed}",
+            command,
             shell=True,
             stdout=subprocess.DEVNULL,
             stderr=self.err_stream,

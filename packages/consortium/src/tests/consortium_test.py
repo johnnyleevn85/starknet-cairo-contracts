@@ -11,6 +11,7 @@ async def test_get_current_epoch(consortium_test_context: dict):
     app_governor = consortium_test_context["contracts_by_role"]["app_governor"]
     await (
         await app_governor.functions["set_initial_validator_set"].invoke_v3(
+            epoch=1,
             public_keys=[
                 (
                     0x6E145CCEF1033DEA239875DD00DFB4FEE6E3348B84985C92F103444683BAE07B,

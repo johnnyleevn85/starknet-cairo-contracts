@@ -45,5 +45,7 @@ inlining-strategy = "avoid"
 
 [[test]]
 build-external-contracts = [
+    "lbtc_bascule::bascule::bascule",
     "lbtc_consortium::consortium::consortium",
+    "lbtc_token::lbtc::token::lbtc",
 ]

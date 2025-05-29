@@ -26,6 +26,8 @@ assert_macros.workspace = true
 snforge_std.workspace = true
 openzeppelin_testing.workspace = true
 starkware_utils_testing.workspace = true
+lbtc_testing = { path = "../testing" }
+lbtc_token = { path = "../token" }
 
 [[test]]
 name = "lbtc_vault_unittest"
@@ -44,3 +46,8 @@ casm-add-pythonic-hints = true
 unstable-add-statements-functions-debug-info = true
 unstable-add-statements-code-locations-debug-info = true
 inlining-strategy = "avoid"
+
+[[test]]
+build-external-contracts = [
+    "lbtc_token::lbtc::token::lbtc",
+]

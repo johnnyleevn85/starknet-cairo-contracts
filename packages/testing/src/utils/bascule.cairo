@@ -8,7 +8,6 @@ pub mod constants {
 
     pub const UPGRADE_DELAY: u64 = 0;
     pub const MAX_DEPOSITS: u32 = 20;
-    pub const VALIDATION_CONSUMER: ContractAddress = 'VALIDATION_CONSUMER'.try_into().unwrap();
 }
 
 fn deploy_bascule() -> ContractAddress {
@@ -16,7 +15,6 @@ fn deploy_bascule() -> ContractAddress {
     calldata.append_serde(testing_constants::GOVERNANCE_ADMIN);
     calldata.append_serde(constants::UPGRADE_DELAY);
     calldata.append_serde(constants::MAX_DEPOSITS);
-    calldata.append_serde(constants::VALIDATION_CONSUMER);
     declare_and_deploy("bascule", calldata)
 }
 
