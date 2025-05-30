@@ -105,7 +105,7 @@ fn main() {
     // 3. consortium: set ValSet
     // 4. lbtc: add app admin role to governance admin
     // 5. lbtc: set bridge as permitted minter -> token admin role
-    // 6. 
+    // 6. bridge: set lbtc address
 
     println!("Deploy contracts: DONE");
 }
