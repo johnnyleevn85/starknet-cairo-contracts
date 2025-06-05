@@ -53,11 +53,3 @@ or
         ```bash
     starkli invoke --private-key <\PRIVATE KEY\> --rpc https://starknet-sepolia.public.blastapi.io/rpc/v0_8 --account <\PRIVATE KEY\> <\CONTRACT ADDRESS\> replace_to <\NEW IMPLEMENTATION CLASS HASH\> 1 0
         ```
-
-
-
-starkli invoke --private-key 0x05469bf05221c5f74b9edd7cfc9ef04848171879bd051cf2a9db5d7124b078fe --rpc https://starknet-sepolia.public.blastapi.io/rpc/v0_8 --account ~/.config/starkli/argent_account 0x00757f4d68c6d940bb24de00653b04caf1f8549166dc0ff18dafa766e8a90714 add_new_implementation 0x00eddb1a114c9f3e46832ae96244a4af047fcaefa9de5926582b75d43994a333 1 0
-
-
-starkli invoke --private-key 0x05469bf05221c5f74b9edd7cfc9ef04848171879bd051cf2a9db5d7124b078fe --rpc https://starknet-sepolia.public.blastapi.io/rpc/v0_8 --account ~/.config/starkli/argent_account 0x00757f4d68c6d940bb24de00653b04caf1f8549166dc0ff18dafa766e8a90714 replace_to 0x00eddb1a114c9f3e46832ae96244a4af047fcaefa9de5926582b75d43994a333 1 0
-
