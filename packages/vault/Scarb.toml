@@ -29,9 +29,6 @@ starkware_utils_testing.workspace = true
 lbtc_testing = { path = "../testing" }
 lbtc_token = { path = "../token" }
 
-[[test]]
-name = "lbtc_vault_unittest"
-
 [scripts]
 test = "SNFORGE_BACKTRACE=1 snforge test"
 
@@ -48,6 +45,8 @@ unstable-add-statements-code-locations-debug-info = true
 inlining-strategy = "avoid"
 
 [[test]]
+name = "lbtc_vault_unittest"
 build-external-contracts = [
     "lbtc_token::lbtc::token::lbtc",
+    "lbtc_manual_strategy::manual_strategy::manual_strategy",
 ]

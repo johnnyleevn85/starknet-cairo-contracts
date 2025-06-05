@@ -25,6 +25,12 @@ How to deploy smart contract
     sncast --account new_account script run deployer --network sepolia --package deployer
         ```
 
+or
+
+        ```bash
+    sncast --account new_account script run deployer_v2 --package deployer_v2 --url https://starknet-sepolia.public.blastapi.io/rpc/v0_8
+        ```
+
 3. Set initial ValSet (1 validator)
 
         ```bash

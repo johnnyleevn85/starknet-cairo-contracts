@@ -26,13 +26,13 @@ pub fn build_deposit_payload_with_selector(deposit_payload: @ByteArray) -> ByteA
 /// The payload includes the to chain, recipient, amount, tx_id,
 /// and vout.
 pub fn build_deposit_payload(
-    to_chain: u256, recipient: ContractAddress, amount: u128, tx_id: u256, vout: u32,
+    to_chain: u256, recipient: ContractAddress, amount: u256, tx_id: u256, vout: u32,
 ) -> ByteArray {
     let mut payload = Default::default();
     append_u256(ref payload, to_chain);
     let recipient: felt252 = recipient.into();
     append_u256(ref payload, recipient.into());
-    append_u128_as_u256(ref payload, amount);
+    append_u256(ref payload, amount);
     append_u256(ref payload, tx_id);
     append_u128_as_u256(ref payload, vout.into());
     assert(payload.len() == DEPOSIT_PAYLOAD_LENGTH, INVALID_DEPOSIT_PAYLOAD_LENGTH);

@@ -1,3 +1,4 @@
+use lbtc_testing::utils::manual_strategy::init_manual_strategy_with_roles;
 use lbtc_testing::utils::token::init_token_with_roles;
 use openzeppelin::token::erc20::erc20::ERC20Component::InternalImpl;
 use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
@@ -24,12 +25,14 @@ pub mod constants {
     pub const PERFORMANCE_FEE: (u256, u256, u64) = (0, 500, 1000);
 }
 
-fn deploy_vault(token_address: ContractAddress) -> ContractAddress {
+fn deploy_vault(
+    token_address: ContractAddress, strategy_address: ContractAddress,
+) -> ContractAddress {
     let mut calldata = array![];
     calldata.append_serde(testing_constants::GOVERNANCE_ADMIN);
     calldata.append_serde(constants::UPGRADE_DELAY);
     calldata.append_serde(token_address);
-    calldata.append_serde(constants::STRATEGY_ADDRESS);
+    calldata.append_serde(strategy_address);
     calldata.append_serde(constants::DEPOSIT_LIMIT);
     calldata.append_serde(constants::FEE_RECIPIENT);
     calldata.append_serde(constants::DEPOSIT_FEE);
@@ -40,14 +43,25 @@ fn deploy_vault(token_address: ContractAddress) -> ContractAddress {
     declare_and_deploy("vault", calldata)
 }
 
-pub fn init_vault_with_roles() -> (ContractAddress, ContractAddress) {
+pub fn init_vault_with_roles() -> (ContractAddress, ContractAddress, ContractAddress) {
     let lbtc_token_address = init_token_with_roles();
+    let manual_strategy_address = init_manual_strategy_with_roles(
+        token_address: lbtc_token_address,
+    );
 
-    let vault_address = deploy_vault(token_address: lbtc_token_address);
+    let vault_address = deploy_vault(
+        token_address: lbtc_token_address, strategy_address: manual_strategy_address,
+    );
     test_utils::set_default_roles(
         contract: vault_address, governance_admin: testing_constants::GOVERNANCE_ADMIN,
     );
-    (lbtc_token_address, vault_address)
+    // Set Vault as operator in Manual Strategy.
+    test_utils::set_account_as_operator(
+        contract: manual_strategy_address,
+        account: vault_address,
+        app_role_admin: testing_constants::APP_ROLE_ADMIN,
+    );
+    (lbtc_token_address, manual_strategy_address, vault_address)
 }
 
 pub fn fund_user(

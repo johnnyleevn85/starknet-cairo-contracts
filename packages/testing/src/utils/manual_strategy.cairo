@@ -8,19 +8,21 @@ pub mod constants {
 
     pub const UPGRADE_DELAY: u64 = 0;
     pub const TOKEN_ADDRESS: ContractAddress = 'TOKEN_ADDRESS'.try_into().unwrap();
+    pub const MULTI_SIG_ADDRESS: ContractAddress = 'MULTI_SIG_ADDRESS'.try_into().unwrap();
 }
 
-fn deploy_manual_strategy() -> ContractAddress {
+fn deploy_manual_strategy(token_address: ContractAddress) -> ContractAddress {
     let mut calldata = array![];
     calldata.append_serde(testing_constants::GOVERNANCE_ADMIN);
     calldata.append_serde(constants::UPGRADE_DELAY);
-    calldata.append_serde(constants::TOKEN_ADDRESS);
+    calldata.append_serde(token_address);
+    calldata.append_serde(constants::MULTI_SIG_ADDRESS);
 
     declare_and_deploy("manual_strategy", calldata)
 }
 
-pub fn init_manual_strategy_with_roles() -> ContractAddress {
-    let manual_strategy_address = deploy_manual_strategy();
+pub fn init_manual_strategy_with_roles(token_address: ContractAddress) -> ContractAddress {
+    let manual_strategy_address = deploy_manual_strategy(:token_address);
     test_utils::set_default_roles(
         contract: manual_strategy_address, governance_admin: testing_constants::GOVERNANCE_ADMIN,
     );

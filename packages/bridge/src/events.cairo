@@ -47,7 +47,7 @@ pub struct MintProofConsumed {
 pub struct UnstakeRequest {
     pub from_address: ContractAddress,
     pub script_pub_key: ByteArray,
-    pub amount_after_fee: u128,
+    pub amount_after_fee: u256,
 }
 
 #[derive(Debug, Drop, PartialEq, starknet::Event)]
