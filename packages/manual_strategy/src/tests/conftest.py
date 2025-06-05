@@ -39,6 +39,7 @@ async def manual_strategy_test_context(starknet_test_utils: StarknetTestUtils) -
             roles["governance_admin"].address,
             30,  # initial_upgrade_delay
             roles["token_address"].address,
+            roles["user"].address,  # user is the multi sig.
         ],
     )
     await deploy_result.wait_for_acceptance()

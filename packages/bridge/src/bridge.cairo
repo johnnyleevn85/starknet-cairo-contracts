@@ -68,7 +68,7 @@ pub mod bridge {
         is_withdrawals_enabled: bool,
         used_payloads: Map<u256, bool>,
         dust_fee_rate: u128,
-        btc_locked_amount: u128,
+        btc_locked_amount: u256,
     }
 
     #[event]
@@ -121,7 +121,7 @@ pub mod bridge {
     const MAX_FEE: u64 = 100000;
 
     struct FeeDustInfo {
-        amount_after_fee: u128,
+        amount_after_fee: u256,
         is_above_fee: bool,
         dust_limit: u128,
         is_above_dust: bool,
@@ -140,7 +140,7 @@ pub mod bridge {
             ref self: ContractState,
             to_chain: u256,
             recipient: ContractAddress,
-            amount: u128,
+            amount: u256,
             tx_id: u256,
             vout: u32,
             proof: Span<Signature>,
@@ -159,7 +159,7 @@ pub mod bridge {
         /// Arguments:
         /// scriptPubkey for output.
         /// Amount of LBTC to burn.
-        fn redeem(ref self: ContractState, script_pub_key: ByteArray, amount: u128) {
+        fn redeem(ref self: ContractState, script_pub_key: ByteArray, amount: u256) {
             assert(self.is_withdrawals_enabled.read(), errors::WITHDRAWALS_DISABLED);
 
             let fee = self.burn_commission.read();
@@ -192,6 +192,11 @@ pub mod bridge {
         }
 
         /// ONLY APP_GOVERNOR FUNCTIONS ///
+
+        fn change_bascule(ref self: ContractState, new_bascule: ContractAddress) {
+            self.roles.only_app_governor();
+            self._set_bascule_address(:new_bascule);
+        }
 
         fn change_treasury(ref self: ContractState, new_treasury: ContractAddress) {
             self.roles.only_app_governor();
@@ -253,8 +258,8 @@ pub mod bridge {
         ///
         /// Intended for frontends to validate unstake requests before submission.
         fn calculate_unstake_request_amount(
-            self: @ContractState, script_pub_key: ByteArray, amount: u128,
-        ) -> (u128, bool) {
+            self: @ContractState, script_pub_key: ByteArray, amount: u256,
+        ) -> (u256, bool) {
             let fee = self.burn_commission.read();
             let FeeDustInfo {
                 amount_after_fee, is_above_fee: _, dust_limit: _, is_above_dust,
@@ -310,8 +315,7 @@ pub mod bridge {
         /// @param new_bascule The new address.
         /// Emits a {BasculeChanged} event.
         fn _set_bascule_address(ref self: ContractState, new_bascule: ContractAddress) {
-            assert(new_bascule.is_non_zero(), errors::INVALID_ZERO_ADDRESS);
-            let old_bascule = self.bascule.read().contract_address;
+            let old_bascule = self.get_bascule();
             self.bascule.write(IBasculeDispatcher { contract_address: new_bascule });
             self.emit(events::BasculeChanged { old_bascule, new_bascule });
         }
@@ -327,7 +331,7 @@ pub mod bridge {
 
         fn _validate_and_mint(
             ref self: ContractState,
-            amount: u128,
+            amount: u256,
             to_chain: u256,
             recipient: ContractAddress,
             tx_id: u256,
@@ -350,8 +354,7 @@ pub mod bridge {
 
             // Confirm deposit against Bascule
             let deposit_id: u256 = compute_keccak(arr: @legacy_payload);
-            let bascule = self.bascule.read();
-            bascule.validate_withdrawal(:deposit_id, withdrawal_amount: amount);
+            self._confirm_deposit(:deposit_id, :amount);
 
             // Mint `amount` to `recipient`.
             self.btc_locked_amount.add_and_write(amount);
@@ -370,7 +373,7 @@ pub mod bridge {
         /// - `is_above_dust`: True if `amount_after_fee > dust_limit`.
         ///
         fn _calculate_fee_and_dust_limit(
-            self: @ContractState, script_pub_key: @ByteArray, amount: u128, fee: u64,
+            self: @ContractState, script_pub_key: @ByteArray, amount: u256, fee: u64,
         ) -> FeeDustInfo {
             let output_type = get_output_type(:script_pub_key);
             assert(output_type != OutputType::UNSUPPORTED, errors::SCRIPT_PUB_KEY_UNSUPPORTED);
@@ -386,9 +389,19 @@ pub mod bridge {
             let dust_limit = get_dust_limit_for_output(
                 :output_type, :script_pub_key, :dust_fee_rate,
             );
-            let is_above_dust = amount_after_fee > dust_limit;
+            let is_above_dust = amount_after_fee > dust_limit.into();
 
             FeeDustInfo { amount_after_fee, is_above_fee: true, dust_limit, is_above_dust }
+        }
+
+        /// Checks that the deposit was validated by the Bascule drawbridge.
+        /// @param deposit_id The unique ID of the deposit.
+        /// @param amount The withdrawal amount.
+        fn _confirm_deposit(self: @ContractState, deposit_id: u256, amount: u256) {
+            let bascule = self.bascule.read();
+            if bascule.contract_address.is_non_zero() {
+                bascule.validate_withdrawal(:deposit_id, withdrawal_amount: amount);
+            }
         }
     }
 }

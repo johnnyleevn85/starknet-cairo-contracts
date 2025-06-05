@@ -61,7 +61,7 @@ pub mod bascule {
         /// NOTE: Raising this threshold should be done with extreme caution.  In
         /// particular, you MUST make sure that validate_withdrawal is called with a
         /// correct withdrawal amount.
-        validate_threshold: u128,
+        validate_threshold: u256,
         /// Mapping that tracks deposits on a different chain that can be used to
         /// withdraw the corresponding funds on this chain.
         ///
@@ -115,7 +115,7 @@ pub mod bascule {
         // once.
         //
         // Emits {WithdrawalValidated, WithdrawalNotValidated}.
-        fn validate_withdrawal(ref self: ContractState, deposit_id: u256, withdrawal_amount: u128) {
+        fn validate_withdrawal(ref self: ContractState, deposit_id: u256, withdrawal_amount: u256) {
             self.pausable.assert_not_paused();
             self.roles.only_token_admin();
 
@@ -123,12 +123,7 @@ pub mod bascule {
             let status = deposit_id_entry.read();
             if status == DepositState::Reported {
                 deposit_id_entry.write(DepositState::Withdrawn);
-                self
-                    .emit(
-                        events::WithdrawalValidated {
-                            deposit_id: deposit_id, withdrawal_amount: withdrawal_amount,
-                        },
-                    );
+                self.emit(events::WithdrawalValidated { deposit_id, withdrawal_amount });
                 return;
             }
 
@@ -162,7 +157,7 @@ pub mod bascule {
         ///
         /// # Emits
         /// * `UpdateValidateThreshold` with the old and new thresholds.
-        fn update_validation_threshold(ref self: ContractState, new_threshold: u128) {
+        fn update_validation_threshold(ref self: ContractState, new_threshold: u256) {
             self.pausable.assert_not_paused();
             let old_threshold = self.get_validation_threshold();
             assert(old_threshold != new_threshold, errors::SAME_VALIDATION_THRESHOLD);
@@ -215,7 +210,7 @@ pub mod bascule {
         // View functions
 
         /// Returns the minimum threshold for validating withdrawals.
-        fn get_validation_threshold(self: @ContractState) -> u128 {
+        fn get_validation_threshold(self: @ContractState) -> u256 {
             self.validate_threshold.read()
         }
         /// Returns the maximum number of deposits that can be reported at once.

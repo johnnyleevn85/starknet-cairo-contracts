@@ -17,12 +17,14 @@ pub mod vault {
     use openzeppelin::security::ReentrancyGuardComponent::InternalTrait as ReentrancyGuardInternal;
     use openzeppelin::token::erc20::ERC20Component;
     use openzeppelin::token::erc20::ERC20Component::InternalTrait;
+    use openzeppelin::token::erc20::extensions::erc4626::ERC4626Component;
     use openzeppelin::token::erc20::extensions::erc4626::ERC4626Component::{
         ComponentState as ERC4626ComponentState, InternalImpl,
     };
-    use openzeppelin::token::erc20::extensions::erc4626::interface::IERC4626;
-    use openzeppelin::token::erc20::extensions::erc4626::{DefaultConfig, ERC4626Component};
-    use openzeppelin::token::erc20::interface::IERC20;
+    use openzeppelin::token::erc20::extensions::erc4626::interface::{
+        IERC4626, IERC4626Dispatcher, IERC4626DispatcherTrait,
+    };
+    use openzeppelin::token::erc20::interface::{IERC20, IERC20Dispatcher, IERC20DispatcherTrait};
     use openzeppelin::utils::math::{Rounding, u256_mul_div};
     use starknet::storage::{
         MutableVecTrait, StoragePointerReadAccess, StoragePointerWriteAccess, Vec,
@@ -40,10 +42,8 @@ pub mod vault {
 
     const INIT_HIGH_WATER_MARK: u256 = 1_000_000_000;
     const MAX_BASIS_POINTS: u64 = 10_000;
-    // TODO(Tomer-StarkWare): move this to utils.
-    const YEAR: u64 = 365 * DAY + 6 * HOUR;
+    const AVERAGE_YEAR: u64 = 365 * DAY + 6 * HOUR;
     const DUST: u256 = 100_000_000;
-    const FEE_PERCENTAGE: u256 = 10_000;
 
     component!(path: ERC20Component, storage: erc20, event: ERC20Event);
     component!(path: ERC4626Component, storage: erc4626, event: ERC4626Event);
@@ -65,7 +65,6 @@ pub mod vault {
     #[abi(embed_v0)]
     impl RolesImpl = RolesComponent::RolesImpl<ContractState>;
 
-    #[abi(embed_v0)]
     impl PausableImpl = PausableComponent::PausableImpl<ContractState>;
 
     impl ERC4626 = ERC4626Component::ERC4626Impl<ContractState>;
@@ -93,11 +92,10 @@ pub mod vault {
         #[substorage(v0)]
         src5: SRC5Component::Storage,
         // --- Vault ---
-        strategy_dispatcher: IManualStrategyDispatcher,
+        strategy_address: ContractAddress,
         deposit_limit: u256,
         fees_updated_at: Timestamp,
         fee_recipient: ContractAddress,
-        // TODO(Mohammad): consider using pause component.
         withdrawals_paused: bool,
         high_water_mark: u256,
         // Fees:
@@ -132,6 +130,11 @@ pub mod vault {
     }
 
 
+    impl ImmutableConfigImpl of ERC4626Component::ImmutableConfig {
+        const UNDERLYING_DECIMALS: u8 = 8;
+        const DECIMALS_OFFSET: u8 = 9;
+    }
+
     #[constructor]
     pub fn constructor(
         ref self: ContractState,
@@ -151,9 +154,7 @@ pub mod vault {
         self.erc4626.initializer(asset_address: token_address);
 
         assert(strategy_address.is_non_zero(), INVALID_ZERO_ADDRESS);
-        self
-            .strategy_dispatcher
-            .write(IManualStrategyDispatcher { contract_address: strategy_address });
+        self.strategy_address.write(strategy_address);
 
         assert(deposit_limit.is_non_zero(), INVALID_ZERO_DEPOSIT_LIMIT);
         self.deposit_limit.write(deposit_limit);
@@ -185,6 +186,9 @@ pub mod vault {
         /// Entry fees should be transferred in the `after_deposit` hook.
         fn adjust_mint(self: @ERC4626ComponentState<ContractState>, assets: u256) -> u256 {
             let vault = self.get_contract();
+            if get_caller_address() == vault.get_fee_recipient() {
+                return assets;
+            }
             u256_mul_div(
                 assets,
                 MAX_BASIS_POINTS.into(),
@@ -231,39 +235,32 @@ pub mod vault {
             assert(receiver.is_non_zero(), INVALID_ZERO_ADDRESS);
 
             let vault = self.get_contract();
+            if vault.pausable.is_paused() {
+                return Option::Some(0);
+            }
+
             let deposit_limit = vault.get_deposit_limit();
             let total_assets = self.total_assets();
+            if total_assets >= deposit_limit {
+                return Option::Some(0);
+            }
 
             Option::Some(deposit_limit - total_assets)
         }
 
         /// The max mint allowed.
-        /// Defaults (`Option::None`) to 2 ** 256 - 1.
         fn mint_limit(
             self: @ERC4626ComponentState<ContractState>, receiver: ContractAddress,
         ) -> Option<u256> {
-            let vault = self.get_contract();
-
-            if vault.is_paused() {
-                return Option::Some(0);
-            }
-
-            let total_assets = self.total_assets();
-            let deposit_limit = vault.get_deposit_limit();
-            if total_assets >= deposit_limit {
-                return Option::Some(0);
-            }
-
-            Option::Some(
-                self
-                    ._convert_to_shares(
-                        assets: deposit_limit - total_assets, rounding: Rounding::Ceil,
-                    ),
-            )
+            self
+                .deposit_limit(receiver)
+                .map(
+                    |asset_limit| self
+                        ._convert_to_shares(assets: asset_limit, rounding: Rounding::Floor),
+                )
         }
 
         /// The max withdraw allowed.
-        /// Defaults (`Option::None`) to the full asset balance of `owner` converted from shares.
         fn withdraw_limit(
             self: @ERC4626ComponentState<ContractState>, owner: ContractAddress,
         ) -> Option<u256> {
@@ -305,6 +302,10 @@ pub mod vault {
                     vault.erc20.mint(recipient: fee_recipient_address, amount: fee_shares);
                 }
             }
+
+            let strategy_address = vault.strategy_address.read();
+            IERC4626Dispatcher { contract_address: strategy_address }
+                .withdraw(:assets, receiver: get_contract_address(), owner: strategy_address);
         }
         /// Hooks into `InternalImpl::_deposit`.
         /// Executes logic after transferring assets and minting shares.
@@ -316,10 +317,10 @@ pub mod vault {
             // Check DUST limit.
             assert(shares > DUST, SHARES_BELOW_DUST);
 
+            let caller = get_caller_address();
             let fee_recipient = vault.get_fee_recipient();
-            // Calculate again the fee in shares.
-            if get_caller_address() != fee_recipient {
-                // Calculate the fee in shares.
+            if caller != fee_recipient {
+                // Calculate again the fee in shares.
                 let fee_assets = u256_mul_div(
                     x: assets,
                     y: vault.get_deposit_fee().into(),
@@ -333,7 +334,12 @@ pub mod vault {
                     vault.erc20.mint(recipient: fee_recipient, amount: fee_shares);
                 }
             }
-            // TODO(Mohammad): call `strategy_dispatcher.deposit`.
+
+            let strategy_address = vault.strategy_address.read();
+            IERC20Dispatcher { contract_address: self.ERC4626_asset.read() }
+                .approve(spender: strategy_address, amount: assets);
+            IERC4626Dispatcher { contract_address: strategy_address }
+                .deposit(:assets, receiver: caller);
         }
     }
 
@@ -343,7 +349,7 @@ pub mod vault {
     pub impl VaultImpl of IVault<ContractState> {
         fn enable_withdrawals(ref self: ContractState) {
             self.roles.only_app_governor();
-            assert(self.withdrawals_paused.read(), WITHDRAWALS_ALREADY_DISABLED);
+            assert(self.withdrawals_paused.read(), WITHDRAWALS_ALREADY_ENABLED);
 
             self.withdrawals_paused.write(false);
             self.emit(WithdrawalPausedToggled { past_value: true, new_value: false });
@@ -351,7 +357,7 @@ pub mod vault {
 
         fn disable_withdrawals(ref self: ContractState) {
             self.roles.only_app_governor();
-            assert(!self.withdrawals_paused.read(), WITHDRAWALS_ALREADY_ENABLED);
+            assert(!self.withdrawals_paused.read(), WITHDRAWALS_ALREADY_DISABLED);
 
             self.withdrawals_paused.write(true);
             self.emit(WithdrawalPausedToggled { past_value: false, new_value: true });
@@ -364,6 +370,7 @@ pub mod vault {
             protocol_fee: u64,
             performance_fee: Span<(u256, u256, u64)>,
         ) {
+            self._take_fees();
             self.roles.only_app_governor();
             self._set_fees(:deposit_fee, :withdrawal_fee, :protocol_fee, :performance_fee);
         }
@@ -407,28 +414,22 @@ pub mod vault {
         }
 
         fn get_available_assets_for_withdrawal(self: @ContractState) -> u256 {
-            self.strategy_dispatcher.read().get_available_assets_for_withdrawal()
-                + self.erc20.balance_of(get_contract_address())
+            let strategy_dispatcher = IManualStrategyDispatcher {
+                contract_address: self.strategy_address.read(),
+            };
+            strategy_dispatcher.get_available_assets_for_withdrawal()
         }
 
         fn accrued_protocol_fee(self: @ContractState) -> u256 {
-            self.pausable.assert_not_paused();
-            let protocol_fee = self.protocol_fee.read();
-            // TODO(Tomer-StarkWare): check that this optimization is good, as removing the if
-            // statement doesn't affect the return value.
-            if protocol_fee.is_zero() {
-                return 0;
-            }
             let time_delta: u64 = Time::now().sub(self.fees_updated_at.read()).into();
             // Calculate the fee based on time elapsed from last updated fee, and total
             // assets.
             u256_mul_div(
-                x: protocol_fee.into(),
-                y: self.erc4626.total_assets() * time_delta.into(),
-                denominator: YEAR.into(),
+                x: self.get_protocol_fee().into() * self.erc4626.total_assets(),
+                y: time_delta.into(),
+                denominator: AVERAGE_YEAR.into() * MAX_BASIS_POINTS.into(),
                 rounding: Rounding::Floor,
             )
-                / FEE_PERCENTAGE
         }
 
         fn accrued_performance_fee(self: @ContractState) -> u256 {
@@ -437,18 +438,47 @@ pub mod vault {
     }
 
     #[abi(embed_v0)]
+    pub impl VaultPauseImpl of IPausable<ContractState> {
+        fn pause(ref self: ContractState) {
+            self._take_fees();
+            self.pausable.pause();
+        }
+
+        fn unpause(ref self: ContractState) {
+            self.pausable.unpause();
+            self.fees_updated_at.write(Time::now());
+        }
+
+        fn is_paused(self: @ContractState) -> bool {
+            self.pausable.is_paused()
+        }
+    }
+
+    #[abi(embed_v0)]
     pub impl VaultERC4626Impl of IERC4626<ContractState> {
         fn deposit(ref self: ContractState, assets: u256, receiver: ContractAddress) -> u256 {
             self.pausable.assert_not_paused();
             self.reentrancy_guard.start();
-            let shares = self.erc4626.deposit(assets: assets, receiver: receiver);
+            self._take_fees();
+            if (self.erc20.total_supply().is_zero()) {
+                self.fees_updated_at.write(Time::now());
+            }
+
+            let shares = self.erc4626.deposit(:assets, :receiver);
+
             self.reentrancy_guard.end();
             shares
         }
         fn mint(ref self: ContractState, shares: u256, receiver: ContractAddress) -> u256 {
             self.pausable.assert_not_paused();
             self.reentrancy_guard.start();
-            let assets = self.erc4626.mint(shares: shares, receiver: receiver);
+            self._take_fees();
+            if (self.erc20.total_supply().is_zero()) {
+                self.fees_updated_at.write(Time::now());
+            }
+
+            let assets = self.erc4626.mint(:shares, :receiver);
+
             self.reentrancy_guard.end();
             assets
         }
@@ -460,7 +490,10 @@ pub mod vault {
         ) -> u256 {
             self.pausable.assert_not_paused();
             self.reentrancy_guard.start();
-            let shares = self.erc4626.withdraw(assets: assets, receiver: receiver, owner: owner);
+            self._take_fees();
+
+            let shares = self.erc4626.withdraw(:assets, :receiver, :owner);
+
             self.reentrancy_guard.end();
             shares
         }
@@ -472,7 +505,10 @@ pub mod vault {
         ) -> u256 {
             self.pausable.assert_not_paused();
             self.reentrancy_guard.start();
-            let assets = self.erc4626.redeem(shares: shares, receiver: receiver, owner: owner);
+            self._take_fees();
+
+            let assets = self.erc4626.redeem(:shares, :receiver, :owner);
+
             self.reentrancy_guard.end();
             assets
         }
@@ -532,6 +568,8 @@ pub mod vault {
             self.deposit_fee.write(deposit_fee);
             self.withdrawal_fee.write(withdrawal_fee);
             self.protocol_fee.write(protocol_fee);
+            // Clear the performance fee vector
+            while self.performance_fee.pop() != Option::None {}
             let mut prev_fee = 0_u64;
             let mut prev_upper_bound = 0_u256;
             for tier in performance_fee {
@@ -552,8 +590,8 @@ pub mod vault {
             self.fees_updated_at.write(Time::now());
         }
 
-        fn _take_fee(ref self: ContractState) {
-            if !self.pausable.is_paused() {
+        fn _take_fees(ref self: ContractState) {
+            if self.pausable.is_paused() {
                 return;
             }
 
@@ -570,16 +608,18 @@ pub mod vault {
 
             if total_fee.is_non_zero() && total_assets.is_non_zero() {
                 let supply = self.erc20.total_supply();
-                let fee_in_shares = match (supply.is_zero()) {
-                    true => total_fee,
-                    false => u256_mul_div(
+                let fee_in_shares = if supply.is_zero() {
+                    total_fee
+                } else {
+                    u256_mul_div(
                         x: total_fee,
                         y: supply,
                         denominator: total_assets - total_fee,
                         rounding: Rounding::Floor,
-                    ),
+                    )
                 };
 
+                // Take fees by diluting the users.
                 self.erc20.mint(recipient: self.fee_recipient.read(), amount: fee_in_shares);
                 self.fees_updated_at.write(Time::now());
             }

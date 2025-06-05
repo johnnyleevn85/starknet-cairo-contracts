@@ -13,14 +13,14 @@ pub trait IBascule<TContractState> {
     ///
     /// Based on:
     /// <https://github.com/lombard-finance/evm-smart-contracts/blob/main/contracts/bascule/interfaces/IBascule.sol>
-    fn validate_withdrawal(ref self: TContractState, deposit_id: u256, withdrawal_amount: u128);
+    fn validate_withdrawal(ref self: TContractState, deposit_id: u256, withdrawal_amount: u256);
 
-    fn update_validation_threshold(ref self: TContractState, new_threshold: u128);
+    fn update_validation_threshold(ref self: TContractState, new_threshold: u256);
     fn set_max_deposits(ref self: TContractState, max_deposits: u32);
     fn report_deposits(ref self: TContractState, report_id: u256, deposit_ids: Span<u256>);
 
     /// View functions
-    fn get_validation_threshold(self: @TContractState) -> u128;
+    fn get_validation_threshold(self: @TContractState) -> u256;
     fn get_max_deposits(self: @TContractState) -> u32;
     fn get_deposit_status(self: @TContractState, deposit_id: u256) -> DepositState;
 }

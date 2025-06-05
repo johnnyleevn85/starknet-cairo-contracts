@@ -1,7 +1,7 @@
 #[derive(Debug, Drop, PartialEq, starknet::Event)]
 pub struct UpdateValidateThreshold {
-    pub old_threshold: u128,
-    pub new_threshold: u128,
+    pub old_threshold: u256,
+    pub new_threshold: u256,
 }
 
 #[derive(Debug, Drop, PartialEq, starknet::Event)]
@@ -26,7 +26,7 @@ pub struct DepositAlreadyReported {
 pub struct WithdrawalNotValidated {
     #[key]
     pub deposit_id: u256,
-    pub withdrawal_amount: u128,
+    pub withdrawal_amount: u256,
 }
 
 
@@ -34,5 +34,5 @@ pub struct WithdrawalNotValidated {
 pub struct WithdrawalValidated {
     #[key]
     pub deposit_id: u256,
-    pub withdrawal_amount: u128,
+    pub withdrawal_amount: u256,
 }

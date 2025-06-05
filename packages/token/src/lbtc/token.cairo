@@ -4,6 +4,8 @@ pub mod lbtc {
     use openzeppelin::access::accesscontrol::AccessControlComponent;
     use openzeppelin::introspection::src5::SRC5Component;
     use openzeppelin::token::erc20::ERC20Component;
+    use openzeppelin::utils::cryptography::nonces::NoncesComponent;
+    use openzeppelin::utils::cryptography::snip12::SNIP12Metadata;
     use starknet::ContractAddress;
     use starkware_utils::components::pausable::PausableComponent;
     use starkware_utils::components::pausable::PausableComponent::InternalTrait as PausableInternal;
@@ -13,8 +15,10 @@ pub mod lbtc {
     use starkware_utils::components::roles::RolesComponent::InternalTrait as RolesInternal;
     use starkware_utils::interfaces::mintable_token::IMintableToken;
 
+
     component!(path: ERC20Component, storage: erc20, event: ERC20Event);
     component!(path: AccessControlComponent, storage: accesscontrol, event: AccessControlEvent);
+    component!(path: NoncesComponent, storage: nonce, event: NoncesEvent);
     component!(path: SRC5Component, storage: src5, event: SRC5Event);
     component!(path: RolesComponent, storage: roles, event: RolesEvent);
     component!(path: ReplaceabilityComponent, storage: replaceability, event: ReplaceabilityEvent);
@@ -38,6 +42,15 @@ pub mod lbtc {
     #[abi(embed_v0)]
     impl ERC20MetadataImpl = ERC20Component::ERC20MetadataImpl<ContractState>;
 
+    // IERC20Permit
+    #[abi(embed_v0)]
+    impl ERC20PermitImpl = ERC20Component::ERC20PermitImpl<ContractState>;
+
+    // ISNIP12Metadata
+    #[abi(embed_v0)]
+    impl SNIP12MetadataExternal =
+        ERC20Component::SNIP12MetadataExternalImpl<ContractState>;
+
     // Internal
     impl ERC20InternalImpl = ERC20Component::InternalImpl<ContractState>;
 
@@ -48,6 +61,8 @@ pub mod lbtc {
         erc20: ERC20Component::Storage,
         #[substorage(v0)]
         accesscontrol: AccessControlComponent::Storage,
+        #[substorage(v0)]
+        nonce: NoncesComponent::Storage,
         #[substorage(v0)]
         src5: SRC5Component::Storage,
         #[substorage(v0)]
@@ -66,6 +81,8 @@ pub mod lbtc {
         #[flat]
         AccessControlEvent: AccessControlComponent::Event,
         #[flat]
+        NoncesEvent: NoncesComponent::Event,
+        #[flat]
         SRC5Event: SRC5Component::Event,
         #[flat]
         PausableEvent: PausableComponent::Event,
@@ -76,16 +93,29 @@ pub mod lbtc {
         MinterAdded: events::MinterAdded,
     }
 
-    fn NAME() -> ByteArray {
-        "Lombard Staked Bitcoin"
+    const NAME: felt252 = 'Lombard Staked Bitcoin';
+    const VERSION: felt252 = '1.0.0';
+
+    pub impl SNIP12MetadataImpl of SNIP12Metadata {
+        fn name() -> felt252 {
+            NAME
+        }
+        fn version() -> felt252 {
+            VERSION
+        }
+    }
+
+    impl ImmutableConfigImpl of ERC20Component::ImmutableConfig {
+        const DECIMALS: u8 = 8;
     }
 
     fn SYMBOL() -> ByteArray {
         "LBTC"
     }
-
-    impl ImmutableConfigImpl of ERC20Component::ImmutableConfig {
-        const DECIMALS: u8 = 8;
+    fn NAME_BA() -> ByteArray {
+        let mut ba = Default::default();
+        ba.append_word(NAME, 22);
+        ba
     }
 
     #[constructor]
@@ -94,7 +124,7 @@ pub mod lbtc {
     ) {
         self.roles.initialize(:governance_admin);
         self.replaceability.initialize(:upgrade_delay);
-        self.erc20.initializer(NAME(), SYMBOL());
+        self.erc20.initializer(name: NAME_BA(), symbol: SYMBOL());
     }
 
     impl HooksImpl<> of ERC20Component::ERC20HooksTrait<ContractState> {
