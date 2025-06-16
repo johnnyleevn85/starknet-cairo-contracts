@@ -1,14 +1,9 @@
 [package]
 name = "lbtc_vault"
 readme = "README.md"
-keywords = [
-   "wip"
-]
+
 version.workspace = true
 edition.workspace = true
-description.workspace = true
-documentation.workspace = true
-repository.workspace = true
 license-file.workspace = true
 
 [tool]
@@ -20,6 +15,7 @@ starknet.workspace = true
 openzeppelin.workspace = true
 starkware_utils.workspace = true
 lbtc_manual_strategy = {path = "../manual_strategy" }
+erc4626 = {path = "../erc4626" }
 
 [dev-dependencies]
 assert_macros.workspace = true

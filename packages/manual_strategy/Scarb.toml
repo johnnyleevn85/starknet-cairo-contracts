@@ -1,14 +1,9 @@
 [package]
 name = "lbtc_manual_strategy"
 readme = "README.md"
-keywords = [
-   "wip"
-]
+
 version.workspace = true
 edition.workspace = true
-description.workspace = true
-documentation.workspace = true
-repository.workspace = true
 license-file.workspace = true
 
 [tool]
@@ -19,6 +14,7 @@ scarb.workspace = true
 starknet.workspace = true
 openzeppelin.workspace = true
 starkware_utils.workspace = true
+erc4626 = { path = "../erc4626" }
 
 [dev-dependencies]
 assert_macros.workspace = true

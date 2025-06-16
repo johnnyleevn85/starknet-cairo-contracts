@@ -1,13 +1,17 @@
 #[starknet::contract]
 pub mod vault {
     use core::num::traits::{Pow, Zero};
+    use erc4626::erc4626::ERC4626Component;
+    use erc4626::erc4626::ERC4626Component::{ComponentState as ERC4626ComponentState, InternalImpl};
+    use erc4626::interface::{IERC4626, IERC4626Dispatcher, IERC4626DispatcherTrait};
+    use erc4626::math::{Rounding, u256_mul_div};
     use lbtc_manual_strategy::interface::{
         IManualStrategyDispatcher, IManualStrategyDispatcherTrait,
     };
     use lbtc_vault::errors::{
-        INVALID_FEE_AMOUNT, INVALID_LOWER_BOUND, INVALID_UPPER_BOUND, INVALID_ZERO_ADDRESS,
-        INVALID_ZERO_DEPOSIT_LIMIT, SHARES_BELOW_DUST, WITHDRAWALS_ALREADY_DISABLED,
-        WITHDRAWALS_ALREADY_ENABLED, WITHDRAWALS_PAUSED,
+        ILLEGAL_PERFORMANCE_FEE_LEN, INVALID_FEE_AMOUNT, INVALID_LOWER_BOUND, INVALID_UPPER_BOUND,
+        INVALID_ZERO_ADDRESS, INVALID_ZERO_DEPOSIT_LIMIT, SHARES_BELOW_DUST,
+        WITHDRAWALS_ALREADY_DISABLED, WITHDRAWALS_ALREADY_ENABLED, WITHDRAWALS_PAUSED,
     };
     use lbtc_vault::events::{DepositLimitSet, FeeRecipientUpdated, WithdrawalPausedToggled};
     use lbtc_vault::interface::IVault;
@@ -17,17 +21,9 @@ pub mod vault {
     use openzeppelin::security::ReentrancyGuardComponent::InternalTrait as ReentrancyGuardInternal;
     use openzeppelin::token::erc20::ERC20Component;
     use openzeppelin::token::erc20::ERC20Component::InternalTrait;
-    use openzeppelin::token::erc20::extensions::erc4626::ERC4626Component;
-    use openzeppelin::token::erc20::extensions::erc4626::ERC4626Component::{
-        ComponentState as ERC4626ComponentState, InternalImpl,
-    };
-    use openzeppelin::token::erc20::extensions::erc4626::interface::{
-        IERC4626, IERC4626Dispatcher, IERC4626DispatcherTrait,
-    };
     use openzeppelin::token::erc20::interface::{IERC20, IERC20Dispatcher, IERC20DispatcherTrait};
-    use openzeppelin::utils::math::{Rounding, u256_mul_div};
     use starknet::storage::{
-        MutableVecTrait, StoragePointerReadAccess, StoragePointerWriteAccess, Vec,
+        MutableVecTrait, StoragePointerReadAccess, StoragePointerWriteAccess, Vec, VecTrait,
     };
     use starknet::{ContractAddress, get_caller_address, get_contract_address};
     use starkware_utils::components::pausable::PausableComponent;
@@ -44,6 +40,7 @@ pub mod vault {
     const MAX_BASIS_POINTS: u64 = 10_000;
     const AVERAGE_YEAR: u64 = 365 * DAY + 6 * HOUR;
     const DUST: u256 = 100_000_000;
+    const SINGLE_ASSET: u256 = 10_u256.pow(18);
 
     component!(path: ERC20Component, storage: erc20, event: ERC20Event);
     component!(path: ERC4626Component, storage: erc4626, event: ERC4626Event);
@@ -171,41 +168,46 @@ pub mod vault {
     impl FeeConfigTraitImpl of ERC4626Component::FeeConfigTrait<ContractState> {
         /// Adjusts deposits within `preview_deposit` to account for entry fees.
         /// Entry fees should be transferred in the `after_deposit` hook.
-        fn adjust_deposit(self: @ERC4626ComponentState<ContractState>, assets: u256) -> u256 {
+        fn deduct_deposit_fee(
+            self: @ERC4626ComponentState<ContractState>, gross_assets: u256,
+        ) -> u256 {
             let vault = self.get_contract();
             if get_caller_address() == vault.get_fee_recipient() {
-                return assets;
+                return gross_assets;
             }
             let fee_assets = u256_mul_div(
-                assets, vault.get_deposit_fee().into(), MAX_BASIS_POINTS.into(), Rounding::Ceil,
+                x: gross_assets,
+                y: vault.get_deposit_fee().into(),
+                denominator: MAX_BASIS_POINTS.into(),
+                rounding: Rounding::Ceil,
             );
-            assets - fee_assets
+            gross_assets - fee_assets
         }
 
         /// Adjusts mints within `preview_mint` to account for entry fees.
         /// Entry fees should be transferred in the `after_deposit` hook.
-        fn adjust_mint(self: @ERC4626ComponentState<ContractState>, assets: u256) -> u256 {
+        fn add_mint_fee(self: @ERC4626ComponentState<ContractState>, net_assets: u256) -> u256 {
             let vault = self.get_contract();
             if get_caller_address() == vault.get_fee_recipient() {
-                return assets;
+                return net_assets;
             }
             u256_mul_div(
-                assets,
-                MAX_BASIS_POINTS.into(),
-                (MAX_BASIS_POINTS - vault.get_deposit_fee()).into(),
-                Rounding::Ceil,
+                x: net_assets,
+                y: MAX_BASIS_POINTS.into(),
+                denominator: (MAX_BASIS_POINTS - vault.get_deposit_fee()).into(),
+                rounding: Rounding::Ceil,
             )
         }
 
         /// Adjusts withdraws within `preview_withdraw` to account for exit fees.
         /// Exit fees should be transferred in the `before_withdraw` hook.
-        fn adjust_withdraw(self: @ERC4626ComponentState<ContractState>, assets: u256) -> u256 {
+        fn add_withdraw_fee(self: @ERC4626ComponentState<ContractState>, net_assets: u256) -> u256 {
             let vault = self.get_contract();
             if get_caller_address() == vault.get_fee_recipient() {
-                return assets;
+                return net_assets;
             }
             u256_mul_div(
-                x: assets,
+                x: net_assets,
                 y: MAX_BASIS_POINTS.into(),
                 denominator: (MAX_BASIS_POINTS - vault.get_withdrawal_fee()).into(),
                 rounding: Rounding::Ceil,
@@ -214,13 +216,15 @@ pub mod vault {
 
         /// Adjusts redeems within `preview_redeem` to account for exit fees.
         /// Exit fees should be transferred in the `before_withdraw` hook.
-        fn adjust_redeem(self: @ERC4626ComponentState<ContractState>, assets: u256) -> u256 {
+        fn deduct_redeem_fee(
+            self: @ERC4626ComponentState<ContractState>, gross_assets: u256,
+        ) -> u256 {
             let vault = self.get_contract();
             if get_caller_address() == vault.get_fee_recipient() {
-                return assets;
+                return gross_assets;
             }
             u256_mul_div(
-                x: assets,
+                x: gross_assets,
                 y: (MAX_BASIS_POINTS - vault.get_withdrawal_fee()).into(),
                 denominator: MAX_BASIS_POINTS.into(),
                 rounding: Rounding::Floor,
@@ -269,10 +273,14 @@ pub mod vault {
             let shares = vault.erc20.balance_of(owner);
             let raw_max_withdraw = self._convert_to_assets(:shares, rounding: Rounding::Floor);
 
+            if owner == vault.get_fee_recipient() {
+                // If the owner is the fee recipient, no need to apply fee.
+                return Option::Some(raw_max_withdraw);
+            }
+
             // Calculate pending fees.
             let pending_fees = vault.accrued_protocol_fee();
 
-            // Return max withdraw minus pending fees.
             let max_withdraw = u256_mul_div(
                 x: raw_max_withdraw,
                 y: (MAX_BASIS_POINTS - vault.get_withdrawal_fee()).into(),
@@ -287,63 +295,66 @@ pub mod vault {
     impl ERC4626HooksTraitImpl of ERC4626Component::ERC4626HooksTrait<ContractState> {
         /// Hooks into `InternalImpl::_withdraw`.
         /// Executes logic before burning shares and transferring assets.
+        /// It mints the fee shares to the fee recipient, and withdraw the assets from the strategy.
         fn before_withdraw(
-            ref self: ERC4626ComponentState<ContractState>, assets: u256, shares: u256,
+            ref self: ERC4626ComponentState<ContractState>,
+            assets: u256,
+            shares: u256,
+            fee_in_shares: u256,
         ) {
             let mut vault = self.get_contract_mut();
             assert(!vault.withdrawals_paused.read(), WITHDRAWALS_PAUSED);
             assert(shares > DUST, SHARES_BELOW_DUST);
 
             let fee_recipient_address = vault.get_fee_recipient();
-            if get_caller_address() != fee_recipient_address {
-                let fee_shares = shares
-                    - self._convert_to_shares(:assets, rounding: Rounding::Floor);
-                if fee_shares > 0 {
-                    vault.erc20.mint(recipient: fee_recipient_address, amount: fee_shares);
-                }
+            if get_caller_address() != fee_recipient_address && fee_in_shares.is_non_zero() {
+                vault.erc20.mint(recipient: fee_recipient_address, amount: fee_in_shares);
             }
 
-            let strategy_address = vault.strategy_address.read();
-            IERC4626Dispatcher { contract_address: strategy_address }
-                .withdraw(:assets, receiver: get_contract_address(), owner: strategy_address);
+            let this = get_contract_address();
+            IERC4626Dispatcher { contract_address: vault.strategy_address.read() }
+                .withdraw(:assets, receiver: this, owner: this);
         }
         /// Hooks into `InternalImpl::_deposit`.
         /// Executes logic after transferring assets and minting shares.
+        /// It mints the fee shares to the fee recipient, and deposits the assets to the strategy.
         fn after_deposit(
-            ref self: ERC4626ComponentState<ContractState>, assets: u256, shares: u256,
+            ref self: ERC4626ComponentState<ContractState>,
+            assets: u256,
+            shares: u256,
+            fee_in_shares: u256,
         ) {
             let mut vault = self.get_contract_mut();
 
             // Check DUST limit.
             assert(shares > DUST, SHARES_BELOW_DUST);
 
-            let caller = get_caller_address();
             let fee_recipient = vault.get_fee_recipient();
-            if caller != fee_recipient {
-                // Calculate again the fee in shares.
-                let fee_assets = u256_mul_div(
-                    x: assets,
-                    y: vault.get_deposit_fee().into(),
-                    denominator: MAX_BASIS_POINTS.into(),
-                    rounding: Rounding::Ceil,
-                );
-                let fee_shares = self
-                    ._convert_to_shares(assets: fee_assets, rounding: Rounding::Ceil);
-
-                if fee_shares.is_non_zero() {
-                    vault.erc20.mint(recipient: fee_recipient, amount: fee_shares);
-                }
+            if get_caller_address() != fee_recipient && fee_in_shares.is_non_zero() {
+                vault.erc20.mint(recipient: fee_recipient, amount: fee_in_shares);
             }
 
             let strategy_address = vault.strategy_address.read();
             IERC20Dispatcher { contract_address: self.ERC4626_asset.read() }
                 .approve(spender: strategy_address, amount: assets);
             IERC4626Dispatcher { contract_address: strategy_address }
-                .deposit(:assets, receiver: caller);
+                .deposit(:assets, receiver: get_contract_address());
         }
     }
 
     impl ERC20HooksTraitImpl of ERC20Component::ERC20HooksTrait<ContractState>;
+
+    impl TotalAssetCalcTraitImpl of ERC4626Component::TotalAssetCalcTrait<ContractState> {
+        fn calculate_total_assets(self: @ERC4626ComponentState<ContractState>) -> u256 {
+            let vault = self.get_contract();
+
+            let strategy_address = vault.strategy_address.read();
+            let strategy_asset_dispatcher = IERC4626Dispatcher {
+                contract_address: strategy_address,
+            };
+            strategy_asset_dispatcher.total_assets()
+        }
+    }
 
     #[abi(embed_v0)]
     pub impl VaultImpl of IVault<ContractState> {
@@ -433,6 +444,40 @@ pub mod vault {
         }
 
         fn accrued_performance_fee(self: @ContractState) -> u256 {
+            let share_value = self
+                .erc4626
+                ._convert_to_assets(shares: SINGLE_ASSET, rounding: Rounding::Floor);
+            let high_water_mark = self.high_water_mark.read();
+
+            if self.performance_fee.len().is_non_zero() && share_value > high_water_mark {
+                let diff = u256_mul_div(
+                    x: share_value,
+                    y: MAX_BASIS_POINTS.into(),
+                    denominator: high_water_mark,
+                    rounding: Rounding::Floor,
+                )
+                    - MAX_BASIS_POINTS.into();
+
+                let total_assets = self.erc4626.total_assets();
+
+                for i in 0..self.performance_fee.len() {
+                    let tier = self
+                        .performance_fee
+                        .get(i)
+                        .expect(ILLEGAL_PERFORMANCE_FEE_LEN)
+                        .read();
+                    let (lower_bound, upper_bound, fee) = tier;
+                    if lower_bound <= diff && diff <= upper_bound {
+                        return u256_mul_div(
+                            x: (share_value - high_water_mark) * total_assets,
+                            y: fee.into(),
+                            denominator: MAX_BASIS_POINTS.into()
+                                * 10_u256.pow(ImmutableConfigImpl::UNDERLYING_DECIMALS.into()),
+                            rounding: Rounding::Floor,
+                        );
+                    }
+                }
+            }
             Default::default()
         }
     }
@@ -598,7 +643,7 @@ pub mod vault {
             let total_fee = self.accrued_protocol_fee() + self.accrued_performance_fee();
             let share_value = self
                 .erc4626
-                ._convert_to_assets(shares: 10_u256.pow(18), rounding: Rounding::Floor);
+                ._convert_to_assets(shares: SINGLE_ASSET, rounding: Rounding::Floor);
             let total_assets = self.erc4626.total_assets();
 
             let high_water_mark = self.high_water_mark.read();

@@ -1,17 +1,18 @@
+/// ⚠️ IMPORTANT ⚠️ multiSig must approve this contract to pull funds for withdrawals.
+/// This contract is a strategy that forwards assets to a designated multi-signature wallet
+
 #[starknet::contract]
 pub mod manual_strategy {
     use core::cmp::min;
     use core::num::traits::Zero;
     use core::panic_with_felt252;
+    use erc4626::erc4626::ERC4626Component;
+    use erc4626::erc4626::ERC4626Component::{ComponentState as ERC4626ComponentState, InternalImpl};
+    use erc4626::interface::IERC4626;
     use lbtc_manual_strategy::events::AssetsForwareded;
     use openzeppelin::access::accesscontrol::AccessControlComponent;
     use openzeppelin::introspection::src5::SRC5Component;
     use openzeppelin::token::erc20::ERC20Component;
-    use openzeppelin::token::erc20::extensions::erc4626::ERC4626Component::{
-        ComponentState as ERC4626ComponentState, InternalImpl,
-    };
-    use openzeppelin::token::erc20::extensions::erc4626::interface::IERC4626;
-    use openzeppelin::token::erc20::extensions::erc4626::{DefaultConfig, ERC4626Component};
     use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
     use starknet::storage::{StorageAsPointer, StoragePointerReadAccess, StoragePointerWriteAccess};
     use starknet::{ContractAddress, get_contract_address};
@@ -83,6 +84,11 @@ pub mod manual_strategy {
         AssetsForwareded: AssetsForwareded,
     }
 
+    impl ImmutableConfigImpl of ERC4626Component::ImmutableConfig {
+        const UNDERLYING_DECIMALS: u8 = 8;
+        const DECIMALS_OFFSET: u8 = 9;
+    }
+
     #[constructor]
     pub fn constructor(
         ref self: ContractState,
@@ -103,7 +109,10 @@ pub mod manual_strategy {
         /// Hooks into `InternalImpl::_withdraw`.
         /// Executes logic before burning shares and transferring assets.
         fn before_withdraw(
-            ref self: ERC4626ComponentState<ContractState>, assets: u256, shares: u256,
+            ref self: ERC4626ComponentState<ContractState>,
+            assets: u256,
+            shares: u256,
+            fee_in_shares: u256,
         ) {
             assert(assets.is_non_zero(), INVALID_ZERO_AMOUNT);
             assert(shares.is_non_zero(), INVALID_ZERO_AMOUNT);
@@ -119,7 +128,10 @@ pub mod manual_strategy {
         /// Hooks into `InternalImpl::_deposit`.
         /// Executes logic after transferring assets and minting shares.
         fn after_deposit(
-            ref self: ERC4626ComponentState<ContractState>, assets: u256, shares: u256,
+            ref self: ERC4626ComponentState<ContractState>,
+            assets: u256,
+            shares: u256,
+            fee_in_shares: u256,
         ) {
             assert(assets.is_non_zero(), INVALID_ZERO_AMOUNT);
             assert(shares.is_non_zero(), INVALID_ZERO_AMOUNT);
@@ -140,6 +152,13 @@ pub mod manual_strategy {
 
     impl ERC20HooksTraitImpl of ERC20Component::ERC20HooksTrait<ContractState>;
 
+    impl TotalAssetCalcTraitImpl of ERC4626Component::TotalAssetCalcTrait<ContractState> {
+        fn calculate_total_assets(self: @ERC4626ComponentState<ContractState>) -> u256 {
+            let manual_strategy = self.get_contract();
+            manual_strategy.get_deposited_amount()
+        }
+    }
+
     #[abi(embed_v0)]
     pub impl ManualStrategyImpl of IManualStrategy<ContractState> {
         fn update_amount(ref self: ContractState, amount: u256, is_withdrawal: bool) {
@@ -155,7 +174,7 @@ pub mod manual_strategy {
         }
 
         fn get_available_assets_for_withdrawal(self: @ContractState) -> u256 {
-            let deposited_amount = self.deposited_amount.read();
+            let deposited_amount = self.get_deposited_amount();
             let balance = self.erc20.balance_of(self.get_multi_sig());
             min(deposited_amount, balance)
         }
