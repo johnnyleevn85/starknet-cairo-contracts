@@ -1,0 +1,33 @@
+[package]
+name = "erc4626"
+readme = "README.md"
+
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+
+[tool]
+fmt.workspace = true
+scarb.workspace = true
+
+[dependencies]
+starknet.workspace = true
+openzeppelin.workspace = true
+
+[dev-dependencies]
+assert_macros.workspace = true
+
+[scripts]
+test = "SNFORGE_BACKTRACE=1 snforge test"
+
+[lib]
+
+[[target.starknet-contract]]
+sierra = true
+casm = true
+casm-add-pythonic-hints = true
+
+[profile.dev.cairo]
+unstable-add-statements-functions-debug-info = true
+unstable-add-statements-code-locations-debug-info = true
+inlining-strategy = "avoid"
