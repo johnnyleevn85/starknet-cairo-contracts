@@ -1,0 +1,23 @@
+{
+  "sepolia": {
+    "chainId": "",
+    "admin": {
+      "Owner": "0x001aFebfe9bd3cA1E3315E1B53D92040230c2361AE6848c3046A4eB13C5bfF26",
+      "TimeLock": "",
+      "Deployer": ["0x018fb2fcd0f285174a0aa6dc2f8b6bd3b5020ead1f90ed29e45a0e5d874121a9"]
+    },
+    "lombard": {
+      "Consortium": "0x0426ad5b82ec4f396f33c341b1dc74cd014798d45e04ceb6aa4651afd7dbabc9",
+      "LBTC": "0x00b442f5420860e937a99659326e81a97e07bfd538b3cee65b90029c9da38a5f",
+      "Bridge": "0x01d27f156092746d0d7cd9d9deec5e937f27c3c7c1c28365e9e5efac459880b3",
+      "Bascule": "0x03f6ea63a04e73018dbf3a67f6d82ab20b8e4b8c86c8589e36f7c6d705612a89"
+    },
+    "chainlink": {
+      "ChainSelector": "",
+      "Router": "",
+      "RMN": "",
+      "CLAdapter": "",
+      "LombardTokenPool": ""
+    }
+  }
+}
