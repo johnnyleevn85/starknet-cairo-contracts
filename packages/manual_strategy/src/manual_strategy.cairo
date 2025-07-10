@@ -9,7 +9,7 @@ pub mod manual_strategy {
     use erc4626::erc4626::ERC4626Component;
     use erc4626::erc4626::ERC4626Component::{ComponentState as ERC4626ComponentState, InternalImpl};
     use erc4626::interface::IERC4626;
-    use lbtc_manual_strategy::events::AssetsForwareded;
+    use lbtc_manual_strategy::events::{AmountUpdated, AssetsForwarded};
     use openzeppelin::access::accesscontrol::AccessControlComponent;
     use openzeppelin::introspection::src5::SRC5Component;
     use openzeppelin::token::erc20::ERC20Component;
@@ -20,7 +20,7 @@ pub mod manual_strategy {
     use starkware_utils::components::replaceability::ReplaceabilityComponent::InternalReplaceabilityTrait;
     use starkware_utils::components::roles::RolesComponent;
     use starkware_utils::components::roles::RolesComponent::InternalTrait as RolesInternal;
-    use starkware_utils::utils::{AddToStorage, SubFromStorage};
+    use starkware_utils::storage::utils::{AddToStorage, SubFromStorage};
     use crate::errors::{
         INSUFFICIENT_FUNDS, INVALID_ZERO_ADDRESS, INVALID_ZERO_AMOUNT, TOKEN_TRANSFER_FAILED,
     };
@@ -81,7 +81,8 @@ pub mod manual_strategy {
         RolesEvent: RolesComponent::Event,
         #[flat]
         SRC5Event: SRC5Component::Event,
-        AssetsForwareded: AssetsForwareded,
+        AssetsForwarded: AssetsForwarded,
+        AmountUpdated: AmountUpdated,
     }
 
     impl ImmutableConfigImpl of ERC4626Component::ImmutableConfig {
@@ -118,7 +119,7 @@ pub mod manual_strategy {
             assert(shares.is_non_zero(), INVALID_ZERO_AMOUNT);
             let mut manual_strategy = self.get_contract_mut();
             manual_strategy.deposited_amount.sub_and_write(value: assets);
-            let asset_dispatcher = IERC20Dispatcher { contract_address: self.ERC4626_asset.read() };
+            let asset_dispatcher = IERC20Dispatcher { contract_address: self.asset() };
             assert(
                 asset_dispatcher
                     .transfer_from(manual_strategy.get_multi_sig(), get_contract_address(), assets),
@@ -137,12 +138,12 @@ pub mod manual_strategy {
             assert(shares.is_non_zero(), INVALID_ZERO_AMOUNT);
             let mut manual_strategy = self.get_contract_mut();
             manual_strategy.deposited_amount.add_and_write(value: assets);
-            let token_address = self.ERC4626_asset.read();
+            let token_address = self.asset();
             let asset_dispatcher = IERC20Dispatcher { contract_address: token_address };
             let multi_sig = manual_strategy.get_multi_sig();
             assert(asset_dispatcher.transfer(multi_sig, assets), TOKEN_TRANSFER_FAILED);
             manual_strategy
-                .emit(AssetsForwareded { asset_address: token_address, assets, multi_sig });
+                .emit(AssetsForwarded { asset_address: token_address, assets, multi_sig });
         }
     }
 
@@ -165,17 +166,30 @@ pub mod manual_strategy {
             self.roles.only_app_governor();
             let deposited_amount_ptr = self.deposited_amount.as_ptr();
             let current_deposited_amount = deposited_amount_ptr.read();
-            if is_withdrawal {
+            let new_deposited_amount = if is_withdrawal {
                 assert(current_deposited_amount >= amount, INSUFFICIENT_FUNDS);
-                deposited_amount_ptr.write(current_deposited_amount - amount);
+                current_deposited_amount - amount
             } else {
-                deposited_amount_ptr.write(current_deposited_amount + amount);
-            }
+                current_deposited_amount + amount
+            };
+            deposited_amount_ptr.write(new_deposited_amount);
+            self
+                .emit(
+                    AmountUpdated {
+                        amount,
+                        is_withdrawal,
+                        old_deposited_amount: current_deposited_amount,
+                        new_deposited_amount,
+                    },
+                );
         }
 
         fn get_available_assets_for_withdrawal(self: @ContractState) -> u256 {
             let deposited_amount = self.get_deposited_amount();
-            let balance = self.erc20.balance_of(self.get_multi_sig());
+
+            let asset_dispatcher = IERC20Dispatcher { contract_address: self.erc4626.asset() };
+            let balance = asset_dispatcher.balance_of(self.get_multi_sig());
+
             min(deposited_amount, balance)
         }
 

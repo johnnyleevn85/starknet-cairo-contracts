@@ -36,3 +36,4 @@ pub struct WithdrawalValidated {
     pub deposit_id: u256,
     pub withdrawal_amount: u256,
 }
+

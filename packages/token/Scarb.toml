@@ -1,14 +1,9 @@
 [package]
 name = "lbtc_token"
 readme = "README.md"
-keywords = [
-   "wip"
-]
+
 version.workspace = true
 edition.workspace = true
-description.workspace = true
-documentation.workspace = true
-repository.workspace = true
 license-file.workspace = true
 
 [tool]

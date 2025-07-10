@@ -1,16 +1,14 @@
 #[starknet::contract]
-pub mod bridge {
+pub mod asset_router {
     use core::num::traits::{Pow, Zero};
     use core::sha256::compute_sha256_byte_array;
-    use lbtc_bascule::interface::{IBasculeDispatcher, IBasculeDispatcherTrait};
-    use lbtc_bridge::bitcoin_utils::{
+    use lbtc_asset_router::bitcoin_utils::{
         DEFAULT_DUST_FEE_RATE, OutputType, get_dust_limit_for_output, get_output_type,
     };
-    use lbtc_bridge::interface::IBridge;
-    use lbtc_bridge::utils::{
-        build_deposit_payload, build_deposit_payload_with_selector, compute_keccak,
-    };
-    use lbtc_bridge::{errors, events};
+    use lbtc_asset_router::interface::IAssetRouter;
+    use lbtc_asset_router::utils::build_deposit_payload_with_selector;
+    use lbtc_asset_router::{errors, events};
+    use lbtc_bascule::interface::{IBasculeDispatcher, IBasculeDispatcherTrait};
     use lbtc_consortium::interface::{IConsortiumDispatcher, IConsortiumDispatcherTrait, Signature};
     use openzeppelin::access::accesscontrol::AccessControlComponent;
     use openzeppelin::introspection::src5::SRC5Component;
@@ -19,7 +17,6 @@ pub mod bridge {
         StoragePointerWriteAccess,
     };
     use starknet::{ContractAddress, get_caller_address, get_tx_info};
-    use starkware_utils::components::pausable::PausableComponent;
     use starkware_utils::components::replaceability::ReplaceabilityComponent;
     use starkware_utils::components::replaceability::ReplaceabilityComponent::InternalReplaceabilityTrait;
     use starkware_utils::components::roles::RolesComponent;
@@ -29,18 +26,14 @@ pub mod bridge {
         IMintableTokenDispatcher, IMintableTokenDispatcherTrait,
     };
     use starkware_utils::math::utils::u256_from_u32_array;
-    use starkware_utils::utils::AddToStorage;
+    use starkware_utils::storage::utils::AddToStorage;
 
     component!(path: AccessControlComponent, storage: accesscontrol, event: AccessControlEvent);
-    component!(path: PausableComponent, storage: pausable, event: PausableEvent);
     component!(path: RolesComponent, storage: roles, event: RolesEvent);
     component!(path: SRC5Component, storage: src5, event: SRC5Event);
     component!(path: ReplaceabilityComponent, storage: replaceability, event: ReplaceabilityEvent);
     #[abi(embed_v0)]
     impl RolesImpl = RolesComponent::RolesImpl<ContractState>;
-
-    #[abi(embed_v0)]
-    impl PausableImpl = PausableComponent::PausableImpl<ContractState>;
 
     #[abi(embed_v0)]
     impl ReplaceabilityImpl =
@@ -52,14 +45,12 @@ pub mod bridge {
         #[substorage(v0)]
         accesscontrol: AccessControlComponent::Storage,
         #[substorage(v0)]
-        pausable: PausableComponent::Storage,
-        #[substorage(v0)]
         pub roles: RolesComponent::Storage,
         #[substorage(v0)]
         src5: SRC5Component::Storage,
         #[substorage(v0)]
         replaceability: ReplaceabilityComponent::Storage,
-        // --- Bridge ---
+        // --- AssetRouter ---
         bascule: IBasculeDispatcher,
         consortium: IConsortiumDispatcher,
         lbtc_token: IMintableTokenDispatcher,
@@ -77,15 +68,12 @@ pub mod bridge {
         #[flat]
         AccessControlEvent: AccessControlComponent::Event,
         #[flat]
-        PausableEvent: PausableComponent::Event,
-        #[flat]
         RolesEvent: RolesComponent::Event,
         #[flat]
         SRC5Event: SRC5Component::Event,
         #[flat]
         ReplaceabilityEvent: ReplaceabilityComponent::Event,
         BasculeChanged: events::BasculeChanged,
-        BridgeInitialized: events::BridgeInitialized,
         ConsortiumChanged: events::ConsortiumChanged,
         TreasuryChanged: events::TreasuryChanged,
         BurnCommissionChanged: events::BurnCommissionChanged,
@@ -102,6 +90,7 @@ pub mod bridge {
         upgrade_delay: u64,
         bascule: ContractAddress,
         consortium: ContractAddress,
+        lbtc_token: ContractAddress,
         treasury: ContractAddress,
         burn_commission: u64,
     ) {
@@ -109,9 +98,12 @@ pub mod bridge {
         self.replaceability.initialize(:upgrade_delay);
         self._set_bascule_address(new_bascule: bascule);
         self._set_consortium_address(new_consortium: consortium);
+        self._set_lbtc_token_address(:lbtc_token);
         self._set_treasury_address(new_treasury: treasury);
         self._set_burn_commission(new_burn_commission: burn_commission);
         self._change_dust_fee_rate(new_rate: DEFAULT_DUST_FEE_RATE);
+        // Reset the locked BTC amount to 0.
+        self.btc_locked_amount.write(0);
     }
 
     // 0x0400000000000000000000000000000000000000000000000000000000000000
@@ -128,14 +120,7 @@ pub mod bridge {
     }
 
     #[abi(embed_v0)]
-    pub impl BridgeImpl of IBridge<ContractState> {
-        fn initialize(ref self: ContractState, lbtc_token: ContractAddress) {
-            self.roles.only_app_governor();
-            assert(self.lbtc_token.read().contract_address.is_zero(), errors::ALREADY_INITIALIZED);
-            self._set_lbtc_token_address(:lbtc_token);
-            self.emit(events::BridgeInitialized { lbtc_token });
-        }
-
+    pub impl AssetRouterImpl of IAssetRouter<ContractState> {
         fn mint(
             ref self: ContractState,
             to_chain: u256,
@@ -176,11 +161,11 @@ pub mod bridge {
 
             // Validate there are enough locked btc on the other side
             let locked_amount = self.btc_locked_amount.read();
-            assert(locked_amount >= amount, errors::REDEEM_LIMIT_EXCEEDED);
-            self.btc_locked_amount.write(locked_amount - amount);
+            assert(locked_amount >= amount_after_fee, errors::REDEEM_LIMIT_EXCEEDED);
+            self.btc_locked_amount.write(locked_amount - amount_after_fee);
 
             // This equivalent to burning `amount_after_fee`, and transfer fee to treasury.
-            token_dispatcher.permissioned_burn(account: caller_address, amount: amount.into());
+            token_dispatcher.permissioned_burn(account: caller_address, amount: amount);
             token_dispatcher.permissioned_mint(account: self.get_treasury(), amount: fee.into());
 
             self
@@ -284,7 +269,7 @@ pub mod bridge {
 
 
     #[generate_trait]
-    impl PrivateImpl of PrivateBridge {
+    impl PrivateImpl of PrivateAssetRouter {
         fn _set_consortium_address(ref self: ContractState, new_consortium: ContractAddress) {
             assert(new_consortium.is_non_zero(), errors::INVALID_ZERO_ADDRESS);
             let old_consortium = self.consortium.read().contract_address;
@@ -338,12 +323,8 @@ pub mod bridge {
             vout: u32,
             proof: Span<Signature>,
         ) {
-            let legacy_payload = build_deposit_payload(
-                :to_chain, :recipient, :amount, :tx_id, :vout,
-            );
-
             let payload: ByteArray = build_deposit_payload_with_selector(
-                deposit_payload: @legacy_payload,
+                :to_chain, :recipient, :amount, :tx_id, :vout,
             );
 
             let payload_hash: u256 = u256_from_u32_array(compute_sha256_byte_array(arr: @payload));
@@ -353,13 +334,12 @@ pub mod bridge {
             consortium.check_proof(msg_hash: payload_hash, :proof);
 
             // Confirm deposit against Bascule
-            let deposit_id: u256 = compute_keccak(arr: @legacy_payload);
-            self._confirm_deposit(:deposit_id, :amount);
+            self._confirm_deposit(:to_chain, :recipient, :amount, :tx_id, :vout);
 
             // Mint `amount` to `recipient`.
             self.btc_locked_amount.add_and_write(amount);
             let lbtc_token = self.lbtc_token.read();
-            lbtc_token.permissioned_mint(account: recipient, amount: amount.into());
+            lbtc_token.permissioned_mint(account: recipient, amount: amount);
 
             self.emit(events::MintProofConsumed { recipient, payload_hash, payload });
         }
@@ -397,10 +377,20 @@ pub mod bridge {
         /// Checks that the deposit was validated by the Bascule drawbridge.
         /// @param deposit_id The unique ID of the deposit.
         /// @param amount The withdrawal amount.
-        fn _confirm_deposit(self: @ContractState, deposit_id: u256, amount: u256) {
+        fn _confirm_deposit(
+            self: @ContractState,
+            to_chain: u256,
+            recipient: ContractAddress,
+            amount: u256,
+            tx_id: u256,
+            vout: u32,
+        ) {
             let bascule = self.bascule.read();
             if bascule.contract_address.is_non_zero() {
-                bascule.validate_withdrawal(:deposit_id, withdrawal_amount: amount);
+                bascule
+                    .validate_withdrawal(
+                        :to_chain, :recipient, withdrawal_amount: amount, :tx_id, :vout,
+                    );
             }
         }
     }

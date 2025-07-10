@@ -6,7 +6,7 @@ pub mod consortium {
     use lbtc_consortium::events::ValidatorSetUpdated;
     use lbtc_consortium::interface::{IConsortium, PublicKey, Signature};
     use lbtc_consortium::utils::{
-        calculate_sha256_for_set_next_validator_set_paylod, insert_if_unique,
+        calculate_sha256_for_set_next_validator_set_payload, insert_if_unique,
     };
     use openzeppelin::access::accesscontrol::AccessControlComponent;
     use openzeppelin::introspection::src5::SRC5Component;
@@ -22,7 +22,7 @@ pub mod consortium {
     use starkware_utils::components::replaceability::ReplaceabilityComponent::InternalReplaceabilityTrait;
     use starkware_utils::components::roles::RolesComponent;
     use starkware_utils::components::roles::RolesComponent::InternalTrait as RolesInternal;
-    use starkware_utils::iterable_map::{
+    use starkware_utils::storage::iterable_map::{
         IterableMap, IterableMapIntoIterImpl, IterableMapReadAccessImpl, IterableMapWriteAccessImpl,
     };
 
@@ -115,7 +115,7 @@ pub mod consortium {
             // Validations.
             self._validate_new_validator_set(:public_keys, :weights, :threshold_weight);
 
-            let msg_hash = calculate_sha256_for_set_next_validator_set_paylod(
+            let msg_hash = calculate_sha256_for_set_next_validator_set_payload(
                 :epoch, :public_keys, :weights, :threshold_weight, :height,
             );
             self.check_proof(:msg_hash, :proof);

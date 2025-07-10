@@ -16,8 +16,7 @@ openzeppelin.workspace = true
 starkware_utils.workspace = true
 lbtc_token = {path = "../token"}
 lbtc_consortium = {path = "../consortium"}
-lbtc_bridge = {path = "../bridge"}
-erc4626 = {path = "../erc4626"}
+lbtc_asset_router = {path = "../asset_router"}
 
 [dev-dependencies]
 assert_macros.workspace = true

@@ -1,12 +1,13 @@
 use lbtc_consortium::errors::{
     DUPLICATED_VALIDATOR, INVALID_EPOCH, INVALID_VALIDATOR_SET_SIZE, INVALID_ZERO_WEIGHT_THRESHOLD,
-    PUB_KEYS_WEIGHTS_LEN_MISMATCH, VALIDATORS_SET_ALREADY_SET, VALIDATORS_WERE_NOT_INITIALIZED,
+    NOT_ENOUGH_SIGNATURES, PUB_KEYS_WEIGHTS_LEN_MISMATCH, TOTAL_WEIGHT_UNDER_THRESHOLD,
+    VALIDATORS_SET_ALREADY_SET, VALIDATORS_WERE_NOT_INITIALIZED,
 };
 use lbtc_consortium::interface::{
     IConsortiumDispatcher, IConsortiumDispatcherTrait, IConsortiumSafeDispatcher,
     IConsortiumSafeDispatcherTrait, Signature,
 };
-use lbtc_consortium::utils::calculate_sha256_for_set_next_validator_set_paylod;
+use lbtc_consortium::utils::calculate_sha256_for_set_next_validator_set_payload;
 use lbtc_testing::utils::consortium::{generate_public_key, init_contract_with_roles};
 use snforge_std::signature::secp256k1_curve::{Secp256k1CurveKeyPairImpl, Secp256k1CurveSignerImpl};
 use starknet::eth_address::EthAddress;
@@ -98,24 +99,28 @@ fn test_illegal_initial_validator_set() {
             epoch: 1, public_keys: array![].span(), weights: array![].span(), :threshold_weight,
         );
     assert_panic_with_error(:result, expected_error: "ONLY_APP_GOVERNOR");
+
     cheat_caller_address_once(:contract_address, caller_address: APP_GOVERNOR);
     let result = dispatcher
         .set_initial_validator_set(
             epoch: 1, public_keys: array![].span(), weights: array![].span(), :threshold_weight,
         );
     assert_panic_with_felt_error(:result, expected_error: INVALID_VALIDATOR_SET_SIZE);
+
     cheat_caller_address_once(:contract_address, caller_address: APP_GOVERNOR);
     let result = dispatcher
         .set_initial_validator_set(
             epoch: 1, public_keys: array![].span(), weights: array![1].span(), :threshold_weight,
         );
     assert_panic_with_felt_error(:result, expected_error: PUB_KEYS_WEIGHTS_LEN_MISMATCH);
+
     cheat_caller_address_once(:contract_address, caller_address: APP_GOVERNOR);
     let result = dispatcher
         .set_initial_validator_set(
             epoch: 1, public_keys: array![].span(), weights: array![].span(), threshold_weight: 0,
         );
     assert_panic_with_felt_error(:result, expected_error: INVALID_ZERO_WEIGHT_THRESHOLD);
+
     cheat_caller_address_once(:contract_address, caller_address: APP_GOVERNOR);
     let result = dispatcher
         .set_initial_validator_set(
@@ -125,6 +130,7 @@ fn test_illegal_initial_validator_set() {
             :threshold_weight,
         );
     assert_panic_with_felt_error(:result, expected_error: DUPLICATED_VALIDATOR);
+
     cheat_caller_address_once(:contract_address, caller_address: APP_GOVERNOR);
     let result = dispatcher
         .set_initial_validator_set(
@@ -134,11 +140,18 @@ fn test_illegal_initial_validator_set() {
             :threshold_weight,
         );
     assert_panic_with_felt_error(:result, expected_error: INVALID_EPOCH);
+
+    cheat_caller_address_once(:contract_address, caller_address: APP_GOVERNOR);
+    let result = dispatcher
+        .set_initial_validator_set(epoch: 1, public_keys: pks, :weights, threshold_weight: 61);
+    assert_panic_with_felt_error(:result, expected_error: TOTAL_WEIGHT_UNDER_THRESHOLD);
+
     // Successful initialization.
     cheat_caller_address_once(:contract_address, caller_address: APP_GOVERNOR);
     dispatcher
         .set_initial_validator_set(epoch: 1, public_keys: pks, :weights, :threshold_weight)
         .unwrap();
+
     cheat_caller_address_once(:contract_address, caller_address: APP_GOVERNOR);
     let result = dispatcher
         .set_initial_validator_set(
@@ -186,7 +199,7 @@ fn test_successful_next_validator_set() {
             threshold_weight: 1,
         );
 
-    let msg_hash = calculate_sha256_for_set_next_validator_set_paylod(
+    let msg_hash = calculate_sha256_for_set_next_validator_set_payload(
         :epoch, :public_keys, :weights, :threshold_weight, :height,
     );
     let (r, s) = key_pair.sign(msg_hash).unwrap();
@@ -293,6 +306,17 @@ fn test_illegal_set_next_validator_set() {
             proof: proof.clone(),
         );
     assert_panic_with_felt_error(:result, expected_error: INVALID_ZERO_WEIGHT_THRESHOLD);
+
+    let result = dispatcher
+        .set_next_validator_set(
+            epoch: 2,
+            public_keys: array![public_key_1].span(),
+            weights: array![30].span(),
+            threshold_weight: 31,
+            :height,
+            proof: proof.clone(),
+        );
+    assert_panic_with_felt_error(:result, expected_error: NOT_ENOUGH_SIGNATURES);
 }
 
 #[test]
@@ -310,6 +334,11 @@ fn test_successful_check_proof() {
     let r = 0xfb67498ff38109a13c81d9d8447d1f09c55a2a71f2d437d8944f422af5fff77b;
     let s = 0x1e0a7a24ac2e845c1ea559e8697472fe496d16856d12a7b27d5b64d0a7b53989;
     let signature = (r, s);
+    let invalid_signature = (
+        0xfb67498ff38109a13c81d9d8447d1f09c55a2a71f2d437d8944f422af5fff77b_u256,
+        0xfb67498ff38109a13c81d9d8447d1f09c55a2a71f2d437d8944f422af5fff77b_u256,
+    );
+    let zero_signature = (0_u256, 0_u256);
 
     cheat_caller_address_once(:contract_address, caller_address: APP_GOVERNOR);
     dispatcher
@@ -320,43 +349,75 @@ fn test_successful_check_proof() {
             threshold_weight: 5,
         );
 
-    // Test:
+    // Tests:
     dispatcher.check_proof(:msg_hash, proof: array![signature].span());
-    // Test passes if `check_proof` did not panic.
+    dispatcher.check_proof(:msg_hash, proof: array![signature, signature].span());
+    dispatcher.check_proof(:msg_hash, proof: array![zero_signature, signature].span());
+    dispatcher.check_proof(:msg_hash, proof: array![signature, zero_signature].span());
+    dispatcher.check_proof(:msg_hash, proof: array![invalid_signature, signature].span());
+    // Test passes if `check_proof`s did not panic.
 }
 
 
 #[test]
-#[should_panic(expected_error: 'NOT_ENOUGH_SIGNATURES')]
-fn test_successful_check_proof_duplicate_signature() {
+#[feature("safe_dispatcher")]
+fn test_check_proof_invalid_scenarios() {
     // Setup:
     let contract_address = init_contract_with_roles();
-    let dispatcher = IConsortiumDispatcher { contract_address };
+    let dispatcher = IConsortiumSafeDispatcher { contract_address };
 
     // Params:
-    let public_key1 = (
-        0x21a30c0bdaa3b425e17a062bfdf5b8ecaed4e2d3ab4b30b0774472d4621081d9_u256,
-        0x6a50131029f32effbe5d8ba0da8c75760ff5add90c77efcd48eeebbf56094bd8_u256,
-    );
-    let public_key2 = (
-        0xd9bee4a028efa3eaca7134e953bad6378aa4085e7e7887de7ef249e735ef156d_u256,
-        0x83f08fa5fbb65fed7b736b61247bbd522f1d03b5fbdda7d4b83519ea11c67319_u256,
-    );
     let msg_hash = 0x8917d1b016548996625c37d4ac902ccc5951f248ab8466a640a98fa7864de548;
-    let r = 0xfb67498ff38109a13c81d9d8447d1f09c55a2a71f2d437d8944f422af5fff77b;
-    let s = 0x1e0a7a24ac2e845c1ea559e8697472fe496d16856d12a7b27d5b64d0a7b53989;
-    let signature = (r, s);
+
+    let secret_key_1 = 0x21a30c0bdaa3b425e17a062bfdf5b8ecaed4e2d3ab4b30b0774472d4621081d9_u256;
+    let secret_key_2 = 0x21a30c0bdaa3b425e17a062bfdf5b8ecaed4e2d3ab4b30b0774472d4621081d8_u256;
+    let secret_key_3 = 0x21a30c0bdaa3b425e17a062bfdf5b8ecaed4e2d3ab4b30b0774472d4621081d7_u256;
+    let secret_key_4 = 0x21a30c0bdaa3b425e17a062bfdf5b8ecaed4e2d3ab4b30b1234472d4621081d7_u256;
+
+    let (public_key_1, key_pair_1) = generate_public_key(secret_key: secret_key_1);
+    let (public_key_2, key_pair_2) = generate_public_key(secret_key: secret_key_2);
+    let (public_key_3, key_pair_3) = generate_public_key(secret_key: secret_key_3);
+    let (public_key_4, key_pair_4) = generate_public_key(secret_key: secret_key_4);
+
+    let signature_1 = key_pair_1.sign(msg_hash).unwrap();
+    let signature_2 = key_pair_2.sign(msg_hash).unwrap();
+    let signature_3 = key_pair_3.sign(msg_hash).unwrap();
+    let signature_4 = key_pair_4.sign(msg_hash).unwrap();
+    let invalid_signature = (
+        0x4567498ff38109a13c81d9d8447d1f09c55a2a71f2d437d8944f422af5fff77b_u256,
+        0xfb67498ff38109a13c81d9d8447d1f09c55a2a71f2d437d8944f422af5fff77b_u256,
+    );
+    let zero_signature = (0_u256, 0_u256);
+
+    let result = dispatcher.check_proof(:msg_hash, proof: array![signature_3].span());
+    assert_panic_with_felt_error(:result, expected_error: VALIDATORS_WERE_NOT_INITIALIZED);
 
     cheat_caller_address_once(:contract_address, caller_address: APP_GOVERNOR);
     dispatcher
         .set_initial_validator_set(
             epoch: 1,
-            public_keys: array![public_key1, public_key2].span(),
-            weights: array![4, 4].span(),
+            public_keys: array![public_key_1, public_key_2, public_key_3, public_key_4].span(),
+            weights: array![4, 5, 2, 1].span(),
             threshold_weight: 5,
-        );
+        )
+        .unwrap();
 
     // Test:
-    dispatcher.check_proof(:msg_hash, proof: array![signature, signature].span());
+    let result = dispatcher.check_proof(:msg_hash, proof: array![signature_3].span());
+    assert_panic_with_felt_error(:result, expected_error: NOT_ENOUGH_SIGNATURES);
+
+    let result = dispatcher
+        .check_proof(:msg_hash, proof: array![signature_3, signature_3, signature_4].span());
+    assert_panic_with_felt_error(:result, expected_error: NOT_ENOUGH_SIGNATURES);
+
+    dispatcher.check_proof(:msg_hash, proof: array![signature_2].span()).unwrap();
+
+    dispatcher.check_proof(:msg_hash, proof: array![signature_1, signature_3].span()).unwrap();
+    dispatcher
+        .check_proof(
+            :msg_hash,
+            proof: array![zero_signature, signature_4, invalid_signature, signature_1].span(),
+        )
+        .unwrap();
 }
 

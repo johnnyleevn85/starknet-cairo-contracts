@@ -15,6 +15,7 @@ starknet.workspace = true
 openzeppelin.workspace = true
 starkware_utils.workspace = true
 erc4626 = { path = "../erc4626" }
+lbtc_token = {path = "../token"}
 
 [dev-dependencies]
 assert_macros.workspace = true
@@ -22,9 +23,6 @@ snforge_std.workspace = true
 openzeppelin_testing.workspace = true
 starkware_utils_testing.workspace = true
 lbtc_testing = { path = "../testing" }
-
-[[test]]
-name = "lbtc_manual_strategy_unittest"
 
 [scripts]
 test = "SNFORGE_BACKTRACE=1 snforge test"
@@ -40,3 +38,9 @@ casm-add-pythonic-hints = true
 unstable-add-statements-functions-debug-info = true
 unstable-add-statements-code-locations-debug-info = true
 inlining-strategy = "avoid"
+
+[[test]]
+name = "lbtc_manual_strategy_unittest"
+build-external-contracts = [
+    "lbtc_token::lbtc::token::lbtc",
+]

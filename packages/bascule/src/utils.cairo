@@ -1,28 +1,15 @@
 use core::keccak::compute_keccak_byte_array;
-use lbtc_bridge::errors::INVALID_DEPOSIT_PAYLOAD_LENGTH;
+use lbtc_bascule::errors::INVALID_DEPOSIT_PAYLOAD_LENGTH;
 use starknet::ContractAddress;
 use starkware_utils::math::utils::u256_reverse_endian;
 
-const U32_IN_BYTES: usize = 4;
 const U128_IN_BYTES: usize = 16;
 
 const DEPOSIT_PAYLOAD_LENGTH: usize = 160;
 
 /// Public Functions.
 
-/// Adds the selector prefix to the `deposit_payload`.
-pub fn build_deposit_payload_with_selector(deposit_payload: @ByteArray) -> ByteArray {
-    assert(deposit_payload.len() == DEPOSIT_PAYLOAD_LENGTH, INVALID_DEPOSIT_PAYLOAD_LENGTH);
-    // bytes4(keccak256("payload(bytes32,bytes32,uint64,bytes32,uint32)"))
-    const DEPOSIT_BTC_ACTION: felt252 = 0xf2e73f7c;
-
-    let mut payload: ByteArray = Default::default();
-    payload.append_word(word: DEPOSIT_BTC_ACTION, len: U32_IN_BYTES);
-    payload.append(other: deposit_payload);
-    payload
-}
-
-/// Calculates the `deposit_btc` payload for the Bridge.
+/// Calculates the `deposit_btc` payload for the Asset Router.
 /// The payload includes the to chain, recipient, amount, tx_id,
 /// and vout.
 pub fn build_deposit_payload(
@@ -37,6 +24,16 @@ pub fn build_deposit_payload(
     append_u128_as_u256(ref payload, vout.into());
     assert(payload.len() == DEPOSIT_PAYLOAD_LENGTH, INVALID_DEPOSIT_PAYLOAD_LENGTH);
     payload
+}
+
+/// Returns the deposit id.
+pub fn calculate_deposit_id(
+    to_chain: u256, recipient: ContractAddress, withdrawal_amount: u256, tx_id: u256, vout: u32,
+) -> u256 {
+    let payload = build_deposit_payload(
+        :to_chain, :recipient, amount: withdrawal_amount, :tx_id, :vout,
+    );
+    compute_keccak(arr: @payload)
 }
 
 

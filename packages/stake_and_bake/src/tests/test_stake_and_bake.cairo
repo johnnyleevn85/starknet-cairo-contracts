@@ -20,3 +20,21 @@ fn test_stake_and_bake_set_fee() {
     let fee = stake_and_bake.get_stake_and_bake_fee();
     assert_eq!(fee, 10);
 }
+
+#[test]
+fn test_stake_and_bake_set_depositor() {
+    let stake_and_bake_address = init_stake_and_bake_with_roles();
+    let stake_and_bake = IStakeAndBakeDispatcher { contract_address: stake_and_bake_address };
+
+    let depositor = stake_and_bake.get_stake_and_bake_depositor();
+    assert_eq!(depositor, constants::VAULT);
+
+    cheat_caller_address_once(
+        contract_address: stake_and_bake_address, caller_address: testing_constants::APP_GOVERNOR,
+    );
+    let new_vault = constants::NEW_VAULT;
+    stake_and_bake.set_depositor(new_vault);
+    let depositor = stake_and_bake.get_stake_and_bake_depositor();
+    assert_eq!(depositor, new_vault);
+}
+

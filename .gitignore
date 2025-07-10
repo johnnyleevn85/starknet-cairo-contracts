@@ -70,3 +70,7 @@ coverage_report
 venv/
 local_env/
 __pycache__
+
+
+# cursor
+.cursor

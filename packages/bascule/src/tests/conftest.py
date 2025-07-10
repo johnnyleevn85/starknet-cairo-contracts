@@ -2,7 +2,7 @@ from starknet_py.proxy.contract_abi_resolver import ContractAbiResolver, ProxyCo
 
 import pytest_asyncio
 from starknet_py.contract import Contract
-from starknet_net_test_util import StarknetTestUtils, load_contract, grant_roles
+from starknet_test_util import StarknetTestUtils, load_contract, grant_roles
 
 LBTC_BASCULE = "lbtc_bascule_bascule"
 ROLE_NAMES = [
@@ -15,6 +15,10 @@ ROLE_NAMES = [
     "security_admin",
     "security_agent",
     "user",
+    "pauser",
+    "deposit_reporter",
+    "withdrawal_validator",
+    "validation_guardian",
 ]
 
 ROLES = None  # Initialize global variable
@@ -37,7 +41,7 @@ async def bascule_declaration_context() -> dict:
         compiled_contract_casm=compiled_contract_casm,
         auto_estimate=True,
     )
-    await declare_result.wait_for_acceptance()
+    await declare_result.wait_for_acceptance(check_interval=0.1)
 
     return {
         "declare_result": declare_result,
@@ -53,11 +57,13 @@ async def bascule_test_context(bascule_declaration_context: dict) -> dict:
         auto_estimate=True,
         constructor_args=[
             ROLES["governance_admin"].address,
-            30,  # initial_upgrade_delay
+            ROLES["pauser"].address,
+            ROLES["deposit_reporter"].address,
+            ROLES["withdrawal_validator"].address,
             50,  # initial_max_deposits
         ],
     )
-    await deploy_result.wait_for_acceptance()
+    await deploy_result.wait_for_acceptance(check_interval=0.1)
     contract = deploy_result.deployed_contract
 
     abi, cairo_version = await ContractAbiResolver(
@@ -73,9 +79,8 @@ async def bascule_test_context(bascule_declaration_context: dict) -> dict:
         for role, account in ROLES.items()
     }
 
-    await grant_roles(contracts_by_role=contracts_by_role, roles=ROLES)
-
     return {
         "contract": contract,
         "contracts_by_role": contracts_by_role,
+        "roles": ROLES,
     }

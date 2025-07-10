@@ -15,6 +15,8 @@ pub trait IVault<TContractState> {
         performance_fee: Span<(u256, u256, u64)>,
     );
 
+    fn force_pause(ref self: TContractState);
+
     // View functions.
     fn get_fee_recipient(self: @TContractState) -> ContractAddress;
     fn get_deposit_fee(self: @TContractState) -> u64;

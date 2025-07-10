@@ -2,9 +2,7 @@ use lbtc_consortium::interface::Signature;
 use starknet::ContractAddress;
 
 #[starknet::interface]
-pub trait IBridge<TContractState> {
-    fn initialize(ref self: TContractState, lbtc_token: ContractAddress);
-
+pub trait IAssetRouter<TContractState> {
     fn change_bascule(ref self: TContractState, new_bascule: ContractAddress);
     fn change_treasury(ref self: TContractState, new_treasury: ContractAddress);
     fn change_burn_commission(ref self: TContractState, new_burn_commission: u64);

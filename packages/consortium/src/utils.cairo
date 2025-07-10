@@ -4,41 +4,7 @@ use core::sha256::compute_sha256_u32_array;
 use core::traits::DivRem;
 use lbtc_consortium::interface::PublicKey;
 use starknet::eth_address::EthAddress;
-use starknet::eth_signature::public_key_point_to_eth_address;
-use starknet::secp256_trait::{Signature, recover_public_key};
-use starknet::secp256k1::Secp256k1Point;
 use starkware_utils::math::utils::u256_from_u32_array;
-
-// Public functions:
-
-/// Verifies if the specified address signed a signature (with either parity value).
-///
-/// This function tries both `y_parity=true` and `y_parity=false` to validate the signature.
-///
-/// @param r - The r component of the signature
-/// @param s - The s component of the signature
-/// @param address - The Ethereum address of the validator
-/// @param msg_hash - The hash of the message that was signed
-/// @return Whether the signature is valid for the given validator and message
-pub fn verify_signature_by_address(r: u256, s: u256, address: EthAddress, msg_hash: u256) -> bool {
-    // Try with y_parity = true first
-    let signature = Signature { r, s, y_parity: true };
-    if is_signature_by_address(:address, :msg_hash, :signature) {
-        return true;
-    }
-
-    // If that failed, try with y_parity = false
-    let signature = Signature { r, s, y_parity: false };
-    is_signature_by_address(:address, :msg_hash, :signature)
-}
-
-pub fn is_signature_by_address(address: EthAddress, msg_hash: u256, signature: Signature) -> bool {
-    if let Option::Some(public_key_point) =
-        recover_public_key::<Secp256k1Point>(:msg_hash, :signature) {
-        return address == public_key_point_to_eth_address(:public_key_point);
-    }
-    false
-}
 
 const SHOULD_FIT_IN_U32: felt252 = 'SHOULD_FIT_IN_U32';
 /// Public Functions.
@@ -47,7 +13,7 @@ const SHOULD_FIT_IN_U32: felt252 = 'SHOULD_FIT_IN_U32';
 ///
 /// The payload includes the `NEW_VALSET` constant, the epoch, the list of public keys, their
 /// weights, the threshold weight, and the height.
-pub fn calculate_sha256_for_set_next_validator_set_paylod(
+pub fn calculate_sha256_for_set_next_validator_set_payload(
     epoch: u64,
     public_keys: Span<PublicKey>,
     weights: Span<u128>,

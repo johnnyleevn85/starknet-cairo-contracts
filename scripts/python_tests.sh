@@ -24,10 +24,6 @@ else
     exit 1
 fi
 
-printf "${YELLOW}Building contracts...\n"
-scarb clean
-scarb build
-
 printf "${YELLOW}Pytest...\n"
 pytest . -sv
 if [ $? -eq 0 ]; then

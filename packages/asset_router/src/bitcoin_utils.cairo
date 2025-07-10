@@ -59,14 +59,15 @@ pub fn get_dust_limit_for_output(
     let mut spend_cost = BASE_SPEND_COST;
 
     match output_type {
-        OutputType::UNSUPPORTED => { spend_cost += NON_WITNESS_INPUT_SIZE.into(); },
-        _ => {
+        OutputType::P2TR | OutputType::P2WPKH |
+        OutputType::P2WSH => {
             // witness v0 and v1 has a cheaper payment formula.
             spend_cost += WITNESS_INPUT_SIZE.into();
             // The current addition creates a discrepancy of 1, and our final value should be 98
             // bytes. Thus, we add 1 here.
             spend_cost += 1;
         },
+        _ => { spend_cost += NON_WITNESS_INPUT_SIZE.into(); },
     }
 
     spend_cost += script_pub_key.len().into();
