@@ -3,9 +3,8 @@ members = [
     "packages/token",
     "packages/bascule",
     "packages/consortium",
-    "packages/bridge",
-    "packages/vault",
-    "packages/manual_strategy",
+    "packages/asset_router",
+    "packages/stake_and_bake",
     "packages/testing",
     "scripts/deployer",
     "scripts/deployer_v2",
@@ -15,23 +14,17 @@ members = [
 [workspace.package]
 version = "0.1.0"
 edition = "2024_07"
-description = "WIP"
-documentation = "WIP"
-repository = "WIP"
 license-file = "LICENSE"
-keywords = [
-    "WIP"
-]
 
 [workspace.dependencies]
-starknet = "2.11.2"
-snforge_std = "0.41.0"
-assert_macros = "2.11.2"
-openzeppelin = { git = "https://github.com/OpenZeppelin/cairo-contracts", rev = "bc66fb75b9d9f118d8951ae1afcd71cf2b54102b"}
-openzeppelin_testing = "3.0.0"
-starkware_utils = { git ="https://github.com/starkware-libs/starkware-starknet-utils", rev = "6ccae10fbfc8f30994de18e62cc538b367844a75" }
-starkware_utils_testing = { git="https://github.com/starkware-libs/starkware-starknet-utils", rev = "6ccae10fbfc8f30994de18e62cc538b367844a75" }
-sncast_std = "0.41.0"
+starknet = "2.11.4"
+snforge_std = "0.45.0"
+assert_macros = "2.11.4"
+openzeppelin = "2.0.0"
+openzeppelin_testing = "4.2.0"
+starkware_utils = { git ="https://github.com/starkware-libs/starkware-starknet-utils", rev="e716f3538e5edfefe441e3a8c207710460e3d511" }
+starkware_utils_testing = { git="https://github.com/starkware-libs/starkware-starknet-utils", rev="e716f3538e5edfefe441e3a8c207710460e3d511" }
+sncast_std = "0.45.0"
 
 [workspace.tool.fmt]
 sort-module-level-items = true

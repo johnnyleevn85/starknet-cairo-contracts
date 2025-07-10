@@ -2,9 +2,9 @@ from starknet_py.proxy.contract_abi_resolver import ContractAbiResolver, ProxyCo
 
 import pytest_asyncio
 from starknet_py.contract import Contract
-from starknet_net_test_util import StarknetTestUtils, load_contract, grant_roles
+from starknet_test_util import StarknetTestUtils, load_contract, grant_roles
 
-LBTC_BRIDGE = "lbtc_bridge_bridge"
+LBTC_ASSET_ROUTER = "lbtc_asset_router_asset_router"
 ROLE_NAMES = [
     "governance_admin",
     "upgrade_governor",
@@ -19,18 +19,18 @@ ROLE_NAMES = [
 
 
 @pytest_asyncio.fixture(scope="session")
-async def bridge_test_context(starknet_test_utils: StarknetTestUtils) -> dict:
+async def asset_router_test_context(starknet_test_utils: StarknetTestUtils) -> dict:
     roles = {name: starknet_test_utils.accounts[i] for i, name in enumerate(ROLE_NAMES)}
 
-    compiled_contract_casm = load_contract(f"{LBTC_BRIDGE}.compiled_contract_class")
-    compiled_contract = load_contract(f"{LBTC_BRIDGE}.contract_class")
+    compiled_contract_casm = load_contract(f"{LBTC_ASSET_ROUTER}.compiled_contract_class")
+    compiled_contract = load_contract(f"{LBTC_ASSET_ROUTER}.contract_class")
     declare_result = await Contract.declare_v3(
         account=roles["governance_admin"],
         compiled_contract=compiled_contract,
         compiled_contract_casm=compiled_contract_casm,
         auto_estimate=True,
     )
-    await declare_result.wait_for_acceptance()
+    await declare_result.wait_for_acceptance(check_interval=0.1)
 
     deploy_result = await declare_result.deploy_v3(
         auto_estimate=True,
@@ -39,11 +39,12 @@ async def bridge_test_context(starknet_test_utils: StarknetTestUtils) -> dict:
             30,  # initial_upgrade_delay
             roles["governance_admin"].address,  # TODO change to bascule
             roles["governance_admin"].address,  # TODO change to consortium
+            roles["governance_admin"].address,  # TODO change to token
             roles["governance_admin"].address,  # TODO change to treasury
             1,  # initial_burn_commission
         ],
     )
-    await deploy_result.wait_for_acceptance()
+    await deploy_result.wait_for_acceptance(check_interval=0.1)
     contract = deploy_result.deployed_contract
 
     abi, cairo_version = await ContractAbiResolver(

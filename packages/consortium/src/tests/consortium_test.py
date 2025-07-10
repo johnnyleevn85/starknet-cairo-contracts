@@ -1,9 +1,8 @@
 import pytest
-from starknet_py.contract import Contract
 
 
 @pytest.mark.asyncio
-async def test_get_current_epoch(consortium_test_context: dict):
+async def test_get_current_epoch(consortium_test_context):
     user = consortium_test_context["contracts_by_role"]["user_1"]
 
     (res,) = await user.functions["get_current_epoch"].call()
@@ -22,7 +21,7 @@ async def test_get_current_epoch(consortium_test_context: dict):
             threshold_weight=1,
             auto_estimate=True,
         )
-    ).wait_for_acceptance()
+    ).wait_for_acceptance(check_interval=0.1)
 
     (res,) = await user.functions["get_current_epoch"].call()
     assert res == 1

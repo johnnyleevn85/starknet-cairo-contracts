@@ -62,6 +62,14 @@ fn test_lbtc_burn() {
 }
 
 #[test]
+#[should_panic(expected: "ONLY_TOKEN_ADMIN")]
+fn test_lbtc_burn_caller_not_token_admin() {
+    let lbtc_address = init_token_with_roles();
+    let mintable = IMintableTokenDispatcher { contract_address: lbtc_address };
+    mintable.permissioned_burn(testing_constants::DUMMY_ADDRESS, 1000);
+}
+
+#[test]
 #[should_panic(expected: 'PAUSED')]
 fn test_lbtc_paused() {
     let lbtc_address = init_token_with_roles();

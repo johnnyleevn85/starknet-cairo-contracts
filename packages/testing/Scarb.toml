@@ -1,14 +1,9 @@
 [package]
 name = "lbtc_testing"
 readme = "README.md"
-keywords = [
-   "wip"
-]
+
 version.workspace = true
 edition.workspace = true
-description.workspace = true
-documentation.workspace = true
-repository.workspace = true
 license-file.workspace = true
 
 [tool]
@@ -16,7 +11,8 @@ fmt.workspace = true
 scarb.workspace = true
 
 [dependencies]
-lbtc_bridge = {path = "../bridge"}
+lbtc_asset_router = {path = "../asset_router"}
+lbtc_bascule = {path = "../bascule"}
 starknet.workspace = true
 openzeppelin.workspace = true
 starkware_utils.workspace = true

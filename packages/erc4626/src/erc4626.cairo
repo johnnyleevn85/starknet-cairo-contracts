@@ -40,10 +40,10 @@ pub mod ERC4626Component {
     use openzeppelin::token::erc20::interface::{
         IERC20, IERC20Dispatcher, IERC20DispatcherTrait, IERC20Metadata,
     };
+    use openzeppelin::utils::math;
+    use openzeppelin::utils::math::Rounding;
     use starknet::ContractAddress;
     use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
-    use crate::math;
-    use crate::math::Rounding;
 
     // The default values are only used when the DefaultConfig
     // is in scope in the implementing contract.
@@ -145,33 +145,33 @@ pub mod ERC4626Component {
         /// Adjusts deposits within `preview_deposit` to account for entry fees.
         /// Entry fees should be transferred in the `after_deposit` hook.
         fn deduct_deposit_fee(
-            self: @ComponentState<TContractState>, gross_assets: u256,
+            self: @ComponentState<TContractState>, gross_value: u256,
         ) -> u256 {
-            gross_assets
+            gross_value
         }
 
         /// Adjusts mints within `preview_mint` to account for entry fees.
         /// Entry fees should be transferred in the `after_deposit` hook.
         fn add_mint_fee(
-            self: @ComponentState<TContractState>, net_assets: u256,
+            self: @ComponentState<TContractState>, net_value: u256,
         ) -> u256 {
-            net_assets
+            net_value
         }
 
         /// Adjusts withdraws within `preview_withdraw` to account for exit fees.
         /// Exit fees should be transferred in the `before_withdraw` hook.
         fn add_withdraw_fee(
-            self: @ComponentState<TContractState>, net_assets: u256,
+            self: @ComponentState<TContractState>, net_value: u256,
         ) -> u256 {
-            net_assets
+            net_value
         }
 
         /// Adjusts redeems within `preview_redeem` to account for exit fees.
         /// Exit fees should be transferred in the `before_withdraw` hook.
         fn deduct_redeem_fee(
-            self: @ComponentState<TContractState>, gross_assets: u256,
+            self: @ComponentState<TContractState>, gross_values: u256,
         ) -> u256 {
-            gross_assets
+            gross_values
         }
     }
 
@@ -460,12 +460,13 @@ pub mod ERC4626Component {
                 net_assets, fee_in_assets, net_shares, fee_in_shares,
             } = self._preview_withdraw(assets);
             let caller = starknet::get_caller_address();
+            let gross_shares = net_shares + fee_in_shares;
             self
                 ._withdraw(
-                    caller, receiver, owner, net_assets, fee_in_assets, net_shares, fee_in_shares,
+                    caller, receiver, owner, net_assets, fee_in_assets, gross_shares, fee_in_shares,
                 );
 
-            net_shares
+            gross_shares
         }
 
         /// Returns the maximum amount of Vault shares that can be redeemed from the owner balance
@@ -599,42 +600,53 @@ pub mod ERC4626Component {
 
         /// TODO: - add doc
         fn _preview_deposit(self: @ComponentState<TContractState>, gross_assets: u256) -> Preview {
-            let net_assets = FeeConfig::deduct_deposit_fee(self, gross_assets);
-            assert(gross_assets >= net_assets, Errors::NEGATIVE_FEE);
+            let gross_shares = self._convert_to_shares(gross_assets, Rounding::Floor);
+            let net_shares = FeeConfig::deduct_deposit_fee(self, gross_shares);
+            let net_assets = self._convert_to_assets(net_shares, Rounding::Ceil);
+
+            assert(gross_shares >= net_shares, Errors::NEGATIVE_FEE);
+            let fee_in_shares = gross_shares - net_shares;
             let fee_in_assets = gross_assets - net_assets;
-            let net_shares = self._convert_to_shares(net_assets, Rounding::Floor);
-            let fee_in_shares = self._convert_to_shares(fee_in_assets, Rounding::Ceil);
+
             Preview { net_assets, fee_in_assets, net_shares, fee_in_shares }
         }
 
         /// TODO: - add doc
         fn _preview_mint(self: @ComponentState<TContractState>, net_shares: u256) -> Preview {
+            let gross_shares = FeeConfig::add_mint_fee(self, net_shares);
+            let gross_assets = self._convert_to_assets(gross_shares, Rounding::Ceil);
             let net_assets = self._convert_to_assets(net_shares, Rounding::Ceil);
-            let gross_assets = FeeConfig::add_mint_fee(self, net_assets);
-            assert(gross_assets >= net_assets, Errors::NEGATIVE_FEE);
-            let fee_in_shares = gross_assets - net_assets;
-            let fee_in_assets = self._convert_to_shares(fee_in_shares, Rounding::Ceil);
+
+            assert(gross_shares >= net_shares, Errors::NEGATIVE_FEE);
+            let fee_in_shares = gross_shares - net_shares;
+            let fee_in_assets = gross_assets - net_assets;
+
             Preview { net_assets, fee_in_assets, net_shares, fee_in_shares }
         }
 
         /// TODO: - add doc
         fn _preview_withdraw(self: @ComponentState<TContractState>, net_assets: u256) -> Preview {
-            let gross_assets = FeeConfig::add_withdraw_fee(self, net_assets);
-            assert(gross_assets >= net_assets, Errors::NEGATIVE_FEE);
+            let net_shares = self._convert_to_shares(net_assets, Rounding::Floor);
+            let gross_shares = FeeConfig::add_withdraw_fee(self, net_shares);
+            let gross_assets = self._convert_to_assets(gross_shares, Rounding::Floor);
+
+            assert(gross_shares >= net_shares, Errors::NEGATIVE_FEE);
+            let fee_in_shares = gross_shares - net_shares;
             let fee_in_assets = gross_assets - net_assets;
-            let net_shares = self._convert_to_shares(gross_assets, Rounding::Ceil);
-            let fee_in_shares = self._convert_to_shares(fee_in_assets, Rounding::Ceil);
+
             Preview { net_assets, fee_in_assets, net_shares, fee_in_shares }
         }
 
         /// TODO: - add doc
         fn _preview_redeem(self: @ComponentState<TContractState>, gross_shares: u256) -> Preview {
+            let net_shares = FeeConfig::deduct_redeem_fee(self, gross_shares);
             let gross_assets = self._convert_to_assets(gross_shares, Rounding::Floor);
-            let net_assets = FeeConfig::deduct_redeem_fee(self, gross_assets);
-            assert(gross_assets >= net_assets, Errors::NEGATIVE_FEE);
+            let net_assets = self._convert_to_assets(net_shares, Rounding::Floor);
+
+            assert(gross_shares >= net_shares, Errors::NEGATIVE_FEE);
+            let fee_in_shares = gross_shares - net_shares;
             let fee_in_assets = gross_assets - net_assets;
-            let fee_in_shares = self._convert_to_shares(fee_in_assets, Rounding::Ceil);
-            let net_shares = gross_shares - fee_in_shares;
+
             Preview { net_assets, fee_in_assets, net_shares, fee_in_shares }
         }
 

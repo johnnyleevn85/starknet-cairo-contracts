@@ -7,6 +7,7 @@ pub mod lbtc {
     use openzeppelin::utils::cryptography::nonces::NoncesComponent;
     use openzeppelin::utils::cryptography::snip12::SNIP12Metadata;
     use starknet::ContractAddress;
+    use starkware_utils::byte_array::short_string_to_byte_array;
     use starkware_utils::components::pausable::PausableComponent;
     use starkware_utils::components::pausable::PausableComponent::InternalTrait as PausableInternal;
     use starkware_utils::components::replaceability::ReplaceabilityComponent;
@@ -94,6 +95,7 @@ pub mod lbtc {
     }
 
     const NAME: felt252 = 'Lombard Staked Bitcoin';
+    const SYMBOL: felt252 = 'LBTC';
     const VERSION: felt252 = '1.0.0';
 
     pub impl SNIP12MetadataImpl of SNIP12Metadata {
@@ -109,22 +111,17 @@ pub mod lbtc {
         const DECIMALS: u8 = 8;
     }
 
-    fn SYMBOL() -> ByteArray {
-        "LBTC"
-    }
-    fn NAME_BA() -> ByteArray {
-        let mut ba = Default::default();
-        ba.append_word(NAME, 22);
-        ba
-    }
-
     #[constructor]
     pub fn constructor(
         ref self: ContractState, governance_admin: ContractAddress, upgrade_delay: u64,
     ) {
         self.roles.initialize(:governance_admin);
         self.replaceability.initialize(:upgrade_delay);
-        self.erc20.initializer(name: NAME_BA(), symbol: SYMBOL());
+        self
+            .erc20
+            .initializer(
+                name: short_string_to_byte_array(NAME), symbol: short_string_to_byte_array(SYMBOL),
+            );
     }
 
     impl HooksImpl<> of ERC20Component::ERC20HooksTrait<ContractState> {

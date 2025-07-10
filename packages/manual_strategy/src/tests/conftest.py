@@ -2,7 +2,7 @@ from starknet_py.proxy.contract_abi_resolver import ContractAbiResolver, ProxyCo
 
 import pytest_asyncio
 from starknet_py.contract import Contract
-from starknet_net_test_util import StarknetTestUtils, load_contract, grant_roles
+from starknet_test_util import StarknetTestUtils, load_contract, grant_roles
 
 LBTC_MANUAL_STRATEGY = "lbtc_manual_strategy_manual_strategy"
 ROLE_NAMES = [
@@ -31,7 +31,7 @@ async def manual_strategy_test_context(starknet_test_utils: StarknetTestUtils) -
         compiled_contract_casm=compiled_contract_casm,
         auto_estimate=True,
     )
-    await declare_result.wait_for_acceptance()
+    await declare_result.wait_for_acceptance(check_interval=0.1)
 
     deploy_result = await declare_result.deploy_v3(
         auto_estimate=True,
@@ -42,7 +42,7 @@ async def manual_strategy_test_context(starknet_test_utils: StarknetTestUtils) -
             roles["user"].address,  # user is the multi sig.
         ],
     )
-    await deploy_result.wait_for_acceptance()
+    await deploy_result.wait_for_acceptance(check_interval=0.1)
     contract = deploy_result.deployed_contract
 
     abi, cairo_version = await ContractAbiResolver(

@@ -1,39 +1,36 @@
 #[starknet::contract]
 pub mod bascule {
+    use core::num::traits::Zero;
     use lbtc_bascule::interface::{DepositState, IBascule};
+    use lbtc_bascule::utils::calculate_deposit_id;
     use lbtc_bascule::{errors, events};
     use openzeppelin::access::accesscontrol::AccessControlComponent;
+    use openzeppelin::access::accesscontrol::AccessControlComponent::{
+        DEFAULT_ADMIN_ROLE, InternalTrait as AccessControlInternal,
+    };
+    use openzeppelin::access::accesscontrol::interface::IAccessControl;
     use openzeppelin::introspection::src5::SRC5Component;
-    use starknet::ContractAddress;
+    use openzeppelin::security::pausable::PausableComponent;
+    use openzeppelin::security::pausable::PausableComponent::InternalTrait as PausableInternal;
     use starknet::event::EventEmitter;
     use starknet::storage::{
         Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
     };
-    use starkware_utils::components::pausable::PausableComponent;
-    use starkware_utils::components::pausable::PausableComponent::InternalTrait as PausableInternal;
-    use starkware_utils::components::replaceability::ReplaceabilityComponent;
-    use starkware_utils::components::replaceability::ReplaceabilityComponent::InternalReplaceabilityTrait;
-    use starkware_utils::components::roles::RolesComponent;
-    use starkware_utils::components::roles::RolesComponent::InternalTrait as RolesInternal;
-    use starkware_utils::components::roles::interface::{IRoles, TOKEN_ADMIN};
+    use starknet::{ContractAddress, get_caller_address};
+    use starkware_utils::components::pausable::interface::IPausable;
     use starkware_utils::errors::assert_with_byte_array;
 
 
+    const DEPOSIT_REPORTER: felt252 = selector!("DEPOSIT_REPORTER_ROLE");
+    const WITHDRAWAL_VALIDATOR: felt252 = selector!("WITHDRAWAL_VALIDATOR_ROLE");
+    const VALIDATION_GUARDIAN: felt252 = selector!("VALIDATION_GUARDIAN_ROLE");
+    const PAUSER: felt252 = selector!("PAUSER_ROLE");
+
     component!(path: AccessControlComponent, storage: accesscontrol, event: AccessControlEvent);
     component!(path: PausableComponent, storage: pausable, event: PausableEvent);
-    component!(path: ReplaceabilityComponent, storage: replaceability, event: ReplaceabilityEvent);
-    component!(path: RolesComponent, storage: roles, event: RolesEvent);
     component!(path: SRC5Component, storage: src5, event: SRC5Event);
 
-    #[abi(embed_v0)]
-    impl ReplaceabilityImpl =
-        ReplaceabilityComponent::ReplaceabilityImpl<ContractState>;
-
-    #[abi(embed_v0)]
-    impl RolesImpl = RolesComponent::RolesImpl<ContractState>;
-
-    #[abi(embed_v0)]
-    impl PausableImpl = PausableComponent::PausableImpl<ContractState>;
+    impl PausableImplOZ = PausableComponent::PausableImpl<ContractState>;
 
     #[storage]
     struct Storage {
@@ -41,10 +38,6 @@ pub mod bascule {
         accesscontrol: AccessControlComponent::Storage,
         #[substorage(v0)]
         pausable: PausableComponent::Storage,
-        #[substorage(v0)]
-        pub replaceability: ReplaceabilityComponent::Storage,
-        #[substorage(v0)]
-        pub roles: RolesComponent::Storage,
         #[substorage(v0)]
         src5: SRC5Component::Storage,
         /// Maximum number of batch deposits it's possible to make at once
@@ -79,10 +72,6 @@ pub mod bascule {
         #[flat]
         PausableEvent: PausableComponent::Event,
         #[flat]
-        ReplaceabilityEvent: ReplaceabilityComponent::Event,
-        #[flat]
-        RolesEvent: RolesComponent::Event,
-        #[flat]
         SRC5Event: SRC5Component::Event,
         DepositAlreadyReported: events::DepositAlreadyReported,
         DepositsReported: events::DepositsReported,
@@ -97,11 +86,23 @@ pub mod bascule {
     pub fn constructor(
         ref self: ContractState,
         governance_admin: ContractAddress,
-        upgrade_delay: u64,
+        pauser: ContractAddress,
+        deposit_reporter: ContractAddress,
+        withdrawal_validator: ContractAddress,
         max_deposits: u32,
     ) {
-        self.roles.initialize(:governance_admin);
-        self.replaceability.initialize(:upgrade_delay);
+        // Validate addresses are non-zero
+        assert(governance_admin.is_non_zero(), errors::INVALID_ZERO_ADDRESS);
+        assert(pauser.is_non_zero(), errors::INVALID_ZERO_ADDRESS);
+        assert(deposit_reporter.is_non_zero(), errors::INVALID_ZERO_ADDRESS);
+        assert(withdrawal_validator.is_non_zero(), errors::INVALID_ZERO_ADDRESS);
+
+        self.accesscontrol.initializer();
+        self.accesscontrol._grant_role(role: DEFAULT_ADMIN_ROLE, account: governance_admin);
+        self.accesscontrol._grant_role(role: DEPOSIT_REPORTER, account: deposit_reporter);
+        self.accesscontrol._grant_role(role: WITHDRAWAL_VALIDATOR, account: withdrawal_validator);
+        self.accesscontrol._grant_role(role: PAUSER, account: pauser);
+
         self.max_deposits.write(max_deposits);
     }
 
@@ -115,10 +116,20 @@ pub mod bascule {
         // once.
         //
         // Emits {WithdrawalValidated, WithdrawalNotValidated}.
-        fn validate_withdrawal(ref self: ContractState, deposit_id: u256, withdrawal_amount: u256) {
+        fn validate_withdrawal(
+            ref self: ContractState,
+            to_chain: u256,
+            recipient: ContractAddress,
+            withdrawal_amount: u256,
+            tx_id: u256,
+            vout: u32,
+        ) {
             self.pausable.assert_not_paused();
-            self.roles.only_token_admin();
+            self.accesscontrol.assert_only_role(role: WITHDRAWAL_VALIDATOR);
 
+            let deposit_id = calculate_deposit_id(
+                :to_chain, :recipient, :withdrawal_amount, :tx_id, :vout,
+            );
             let deposit_id_entry = self.deposit_status.entry(deposit_id);
             let status = deposit_id_entry.read();
             if status == DepositState::Reported {
@@ -134,11 +145,11 @@ pub mod bascule {
             );
 
             // Not reported
-            // We disallow a withdrawal if it's not in the depositHistory and
-            // the value is above the threshold.
+            // We disallow a withdrawal if it's not in the deposit_status and
+            // the value is above or equal to the threshold.
             assert_with_byte_array(
                 withdrawal_amount < self.get_validation_threshold(),
-                errors::Withdrawal_failed_validation(:deposit_id, :withdrawal_amount),
+                errors::withdrawal_failed_validation(:deposit_id, :withdrawal_amount),
             );
 
             // We don't have the deposit_id in the deposit_status, and the value of the
@@ -163,12 +174,14 @@ pub mod bascule {
             assert(old_threshold != new_threshold, errors::SAME_VALIDATION_THRESHOLD);
 
             if new_threshold < old_threshold {
-                self.roles.only_app_governor();
+                self.accesscontrol.assert_only_role(role: DEFAULT_ADMIN_ROLE);
             } else {
-                self.roles.only_token_admin();
+                self.accesscontrol.assert_only_role(role: VALIDATION_GUARDIAN);
                 // Renounce the validation guardian role. This ensures the caller doesn't
                 // have peristent privileges to effectively disable validation.
-                self.roles.renounce(role: TOKEN_ADMIN);
+                self
+                    .accesscontrol
+                    .renounce_role(role: VALIDATION_GUARDIAN, account: get_caller_address());
             }
 
             self.validate_threshold.write(new_threshold);
@@ -177,7 +190,7 @@ pub mod bascule {
 
         fn set_max_deposits(ref self: ContractState, max_deposits: u32) {
             self.pausable.assert_not_paused();
-            self.roles.only_app_governor();
+            self.accesscontrol.assert_only_role(role: DEFAULT_ADMIN_ROLE);
             self.max_deposits.write(max_deposits);
             self.emit(events::MaxDepositsUpdated { num_deposits: max_deposits });
         }
@@ -190,7 +203,7 @@ pub mod bascule {
         //  Emits {DepositsReported}.
         fn report_deposits(ref self: ContractState, report_id: u256, deposit_ids: Span<u256>) {
             self.pausable.assert_not_paused();
-            self.roles.only_operator();
+            self.accesscontrol.assert_only_role(role: DEPOSIT_REPORTER);
 
             let deposit_ids_len = deposit_ids.len();
             assert(deposit_ids_len <= self.get_max_deposits().into(), errors::BAD_DEPOSIT_REPORT);
@@ -222,6 +235,76 @@ pub mod bascule {
         fn get_deposit_status(self: @ContractState, deposit_id: u256) -> DepositState {
             self.deposit_status.entry(deposit_id).read()
         }
+
+        // Role functions
+
+        fn is_deposit_reporter(self: @ContractState, account: ContractAddress) -> bool {
+            self.accesscontrol.has_role(role: DEPOSIT_REPORTER, :account)
+        }
+
+        fn is_withdrawal_validator(self: @ContractState, account: ContractAddress) -> bool {
+            self.accesscontrol.has_role(role: WITHDRAWAL_VALIDATOR, :account)
+        }
+
+        fn is_validation_guardian(self: @ContractState, account: ContractAddress) -> bool {
+            self.accesscontrol.has_role(role: VALIDATION_GUARDIAN, :account)
+        }
+
+        fn is_pauser(self: @ContractState, account: ContractAddress) -> bool {
+            self.accesscontrol.has_role(role: PAUSER, :account)
+        }
+
+        fn register_deposit_reporter(ref self: ContractState, account: ContractAddress) {
+            assert(account.is_non_zero(), errors::INVALID_ZERO_ADDRESS);
+            self.accesscontrol.grant_role(role: DEPOSIT_REPORTER, :account);
+        }
+
+        fn register_withdrawal_validator(ref self: ContractState, account: ContractAddress) {
+            assert(account.is_non_zero(), errors::INVALID_ZERO_ADDRESS);
+            self.accesscontrol.grant_role(role: WITHDRAWAL_VALIDATOR, :account);
+        }
+
+        fn register_validation_guardian(ref self: ContractState, account: ContractAddress) {
+            assert(account.is_non_zero(), errors::INVALID_ZERO_ADDRESS);
+            self.accesscontrol.grant_role(role: VALIDATION_GUARDIAN, :account);
+        }
+
+        fn register_pauser(ref self: ContractState, account: ContractAddress) {
+            assert(account.is_non_zero(), errors::INVALID_ZERO_ADDRESS);
+            self.accesscontrol.grant_role(role: PAUSER, :account);
+        }
+
+        fn remove_deposit_reporter(ref self: ContractState, account: ContractAddress) {
+            self.accesscontrol.revoke_role(role: DEPOSIT_REPORTER, :account);
+        }
+
+        fn remove_withdrawal_validator(ref self: ContractState, account: ContractAddress) {
+            self.accesscontrol.revoke_role(role: WITHDRAWAL_VALIDATOR, :account);
+        }
+
+        fn remove_validation_guardian(ref self: ContractState, account: ContractAddress) {
+            self.accesscontrol.revoke_role(role: VALIDATION_GUARDIAN, :account);
+        }
+
+        fn remove_pauser(ref self: ContractState, account: ContractAddress) {
+            self.accesscontrol.revoke_role(role: PAUSER, :account);
+        }
+    }
+
+    #[abi(embed_v0)]
+    pub impl PausableImpl of IPausable<ContractState> {
+        fn is_paused(self: @ContractState) -> bool {
+            self.pausable.is_paused()
+        }
+
+        fn pause(ref self: ContractState) {
+            self.accesscontrol.assert_only_role(role: PAUSER);
+            self.pausable.pause();
+        }
+
+        fn unpause(ref self: ContractState) {
+            self.accesscontrol.assert_only_role(role: PAUSER);
+            self.pausable.unpause();
+        }
     }
 }
-

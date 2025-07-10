@@ -2,7 +2,7 @@ from starknet_py.proxy.contract_abi_resolver import ContractAbiResolver, ProxyCo
 
 import pytest_asyncio
 from starknet_py.contract import Contract
-from starknet_net_test_util import StarknetTestUtils, load_contract, grant_roles
+from starknet_test_util import StarknetTestUtils, load_contract, grant_roles
 
 LBTC_CONSORTIUM = "lbtc_consortium_consortium"
 ROLE_NAMES = [
@@ -32,7 +32,7 @@ async def consortium_test_context(starknet_test_utils: StarknetTestUtils) -> dic
         compiled_contract_casm=compiled_contract_casm,
         auto_estimate=True,
     )
-    await declare_result.wait_for_acceptance()
+    await declare_result.wait_for_acceptance(check_interval=0.1)
 
     deploy_result = await declare_result.deploy_v3(
         auto_estimate=True,
@@ -41,7 +41,7 @@ async def consortium_test_context(starknet_test_utils: StarknetTestUtils) -> dic
             50,  # initial_upgrade_delay
         ],
     )
-    await deploy_result.wait_for_acceptance()
+    await deploy_result.wait_for_acceptance(check_interval=0.1)
 
     contract = deploy_result.deployed_contract
 

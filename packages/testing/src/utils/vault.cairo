@@ -22,7 +22,8 @@ pub mod constants {
     pub const DEPOSIT_FEE: u128 = 400; // 4%.
     pub const WITHDRAW_FEE: u128 = 200;
     pub const PROTOCOL_FEE: u128 = 250;
-    pub const PERFORMANCE_FEE: (u256, u256, u64) = (0, 500, 1000);
+    pub const PERFORMANCE_FEE: (u256, u256, u64) = (0, 10000, 300);
+    pub const ASSETS_2_SHARES: u256 = 1_000_000_000;
 }
 
 fn deploy_vault(
