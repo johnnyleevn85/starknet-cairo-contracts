@@ -18,7 +18,7 @@ pub const UPGRADE_DELAY: u64 = 0;
 pub const MAX_DEPOSITS: u64 = 100;
 pub const BURN_COMMISSION: u64 = 1000;
 
-pub const BASCULE_CLASSS_HASH: felt252 = 0x1cb633c9835b67a61aa1a678c146ba456a61ad4462243c955049e896448142f;
+pub const BASCULE_CLASSS_HASH: felt252 = 0x83965992f591e5979068d8a12a09a1f13949e1d1f65f495e7a5503d2f1e519;
 pub const CONSORTIUM_CLASSS_HASH: felt252 = 0xa6410783177211d658ad025479b4392bb1076d9387b9fab630c9432550d445;
 pub const LBTC_CLASSS_HASH: felt252 = 0x7825833d4a2c39c770284dc4d9ae7235d2129a0e9c06f6c3d945b31633c135d;
 pub const BRIDGE_CLASSS_HASH: felt252 = 0x45dbeac301d4d2ee1668f0046c3cd14b2ce0c9a82449ede1ee60b6f42c9d4e1;
@@ -76,9 +76,12 @@ fn main() {
     // Deploy bascule
     let mut bascule_calldata = array![];
     bascule_calldata.append_serde(GOVERNANCE_ADMIN); // Governance admin
-    bascule_calldata.append_serde(UPGRADE_DELAY); // Upgrade delay
+    bascule_calldata.append_serde(GOVERNANCE_ADMIN); // Pauser
+    bascule_calldata.append_serde(GOVERNANCE_ADMIN); // Reporter
+    bascule_calldata.append_serde(GOVERNANCE_ADMIN); // Withdrawal validator
     bascule_calldata.append_serde(MAX_DEPOSITS); // Max deposits
     let bascule_address = deploy_contract("bascule", bascule_calldata, true, Some(BASCULE_CLASSS_HASH));
+    // let bascule_address = deploy_contract("bascule", bascule_calldata, false, Some(BASCULE_CLASSS_HASH));
 
     // Deploy consortium
     let mut consortium_calldata = array![];
@@ -103,12 +106,12 @@ fn main() {
     let _bridge_address = deploy_contract("bridge", bridge_calldata, true, Some(BRIDGE_CLASSS_HASH));
 
     // // Set LBTC token on the bridge - but this should be done by governance admin (multisig)
-    // let invoke_nonce = get_nonce('pending');
-    // let mut invoke_calldata = array![];
-    // invoke_calldata.append_serde(lbtc_address); // New treasury
-    // let invoke_result = invoke(bridge_address, selector!("initialize"), invoke_calldata, FeeSettingsTrait::estimate(), Option::Some(invoke_nonce),)
-    //     .expect('map invoke failed');
-    // assert(invoke_result.transaction_hash != 0, invoke_result.transaction_hash);
+    let invoke_nonce = get_nonce('pending');
+    let mut invoke_calldata = array![];
+    invoke_calldata.append_serde(lbtc_address); // New treasury
+    let invoke_result = invoke(bridge_address, selector!("initialize"), invoke_calldata, FeeSettingsTrait::estimate(), Option::Some(invoke_nonce),)
+        .expect('map invoke failed');
+    assert(invoke_result.transaction_hash != 0, invoke_result.transaction_hash);
 
     // ToDO:
     // 0. bascule: add app admin role to governance admin
