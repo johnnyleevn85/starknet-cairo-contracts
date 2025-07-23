@@ -12,18 +12,17 @@ pub mod bascule {
     use openzeppelin::introspection::src5::SRC5Component;
     use openzeppelin::security::pausable::PausableComponent;
     use openzeppelin::security::pausable::PausableComponent::InternalTrait as PausableInternal;
+    use starknet::ContractAddress;
     use starknet::event::EventEmitter;
     use starknet::storage::{
         Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
     };
-    use starknet::{ContractAddress, get_caller_address};
     use starkware_utils::components::pausable::interface::IPausable;
     use starkware_utils::errors::assert_with_byte_array;
 
 
     const DEPOSIT_REPORTER: felt252 = selector!("DEPOSIT_REPORTER_ROLE");
     const WITHDRAWAL_VALIDATOR: felt252 = selector!("WITHDRAWAL_VALIDATOR_ROLE");
-    const VALIDATION_GUARDIAN: felt252 = selector!("VALIDATION_GUARDIAN_ROLE");
     const PAUSER: felt252 = selector!("PAUSER_ROLE");
 
     component!(path: AccessControlComponent, storage: accesscontrol, event: AccessControlEvent);
@@ -172,17 +171,7 @@ pub mod bascule {
             self.pausable.assert_not_paused();
             let old_threshold = self.get_validation_threshold();
             assert(old_threshold != new_threshold, errors::SAME_VALIDATION_THRESHOLD);
-
-            if new_threshold < old_threshold {
-                self.accesscontrol.assert_only_role(role: DEFAULT_ADMIN_ROLE);
-            } else {
-                self.accesscontrol.assert_only_role(role: VALIDATION_GUARDIAN);
-                // Renounce the validation guardian role. This ensures the caller doesn't
-                // have peristent privileges to effectively disable validation.
-                self
-                    .accesscontrol
-                    .renounce_role(role: VALIDATION_GUARDIAN, account: get_caller_address());
-            }
+            self.accesscontrol.assert_only_role(role: DEFAULT_ADMIN_ROLE);
 
             self.validate_threshold.write(new_threshold);
             self.emit(events::UpdateValidateThreshold { old_threshold, new_threshold });
@@ -246,10 +235,6 @@ pub mod bascule {
             self.accesscontrol.has_role(role: WITHDRAWAL_VALIDATOR, :account)
         }
 
-        fn is_validation_guardian(self: @ContractState, account: ContractAddress) -> bool {
-            self.accesscontrol.has_role(role: VALIDATION_GUARDIAN, :account)
-        }
-
         fn is_pauser(self: @ContractState, account: ContractAddress) -> bool {
             self.accesscontrol.has_role(role: PAUSER, :account)
         }
@@ -264,11 +249,6 @@ pub mod bascule {
             self.accesscontrol.grant_role(role: WITHDRAWAL_VALIDATOR, :account);
         }
 
-        fn register_validation_guardian(ref self: ContractState, account: ContractAddress) {
-            assert(account.is_non_zero(), errors::INVALID_ZERO_ADDRESS);
-            self.accesscontrol.grant_role(role: VALIDATION_GUARDIAN, :account);
-        }
-
         fn register_pauser(ref self: ContractState, account: ContractAddress) {
             assert(account.is_non_zero(), errors::INVALID_ZERO_ADDRESS);
             self.accesscontrol.grant_role(role: PAUSER, :account);
@@ -280,10 +260,6 @@ pub mod bascule {
 
         fn remove_withdrawal_validator(ref self: ContractState, account: ContractAddress) {
             self.accesscontrol.revoke_role(role: WITHDRAWAL_VALIDATOR, :account);
-        }
-
-        fn remove_validation_guardian(ref self: ContractState, account: ContractAddress) {
-            self.accesscontrol.revoke_role(role: VALIDATION_GUARDIAN, :account);
         }
 
         fn remove_pauser(ref self: ContractState, account: ContractAddress) {

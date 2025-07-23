@@ -1,4 +1,6 @@
 #!/bin/bash
+set -e  # exit on first failure
+
 pushd $(dirname "$0")/..
 
 COLOR_OFF="\033[0m"
@@ -10,31 +12,17 @@ PURPLE='\033[1;35m'
 
 printf "${YELLOW}Check Line Length...\n"
 scripts/line_length.py
-if  [ $? -ne 0 ]; then
-    exit 1
-fi
 
 
 printf "${YELLOW}Run black...\n"
-black  -l 100 --diff --check --color --diff .
-if [ $? -eq 0 ]; then
-    printf "${GREEN}Run black succeed\n"
-else
-    printf "${RED}Run black failed\n${PURPLE}Run 'black -l 100 .' to solve this problem.\n"
-    exit 1
-fi
+black -l 100 --diff --check --color --diff .
+printf "${GREEN}Run black succeed\n"
 
-printf "${YELLOW}Pytest...\n"
-pytest . -sv
-if [ $? -eq 0 ]; then
-    printf "${GREEN}Pytest succeed\n"
-else
-    printf "${RED}Pytest failed.\n"
-    exit 1
-fi
+printf "${YELLOW} pytest...\n"
+pytest . -sv -n auto
+printf "${GREEN}Pytest succeed\n"
 
 
 # Reset
 printf "${COLOR_OFF}"
-
 popd

@@ -19,7 +19,7 @@ ROLE_NAMES = [
 ]
 
 
-@pytest_asyncio.fixture(scope="session")
+@pytest_asyncio.fixture
 async def stake_and_bake_test_context(starknet_test_utils: StarknetTestUtils) -> dict:
     roles = {name: starknet_test_utils.accounts[i] for i, name in enumerate(ROLE_NAMES)}
 

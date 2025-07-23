@@ -45,11 +45,6 @@ pub trait IBascule<TContractState> {
     fn register_withdrawal_validator(ref self: TContractState, account: ContractAddress);
     fn remove_withdrawal_validator(ref self: TContractState, account: ContractAddress);
 
-    /// Validation Guardian Role
-    fn is_validation_guardian(self: @TContractState, account: ContractAddress) -> bool;
-    fn register_validation_guardian(ref self: TContractState, account: ContractAddress);
-    fn remove_validation_guardian(ref self: TContractState, account: ContractAddress);
-
     /// Pauser Role
     fn is_pauser(self: @TContractState, account: ContractAddress) -> bool;
     fn register_pauser(ref self: TContractState, account: ContractAddress);
