@@ -18,19 +18,18 @@ ROLE_NAMES = [
     "pauser",
     "deposit_reporter",
     "withdrawal_validator",
-    "validation_guardian",
 ]
 
 ROLES = None  # Initialize global variable
 
 
-@pytest_asyncio.fixture(scope="session", autouse=True)
+@pytest_asyncio.fixture(autouse=True)
 async def setup_global_roles(starknet_test_utils: StarknetTestUtils):
     global ROLES
     ROLES = {name: starknet_test_utils.accounts[i] for i, name in enumerate(ROLE_NAMES)}
 
 
-@pytest_asyncio.fixture(scope="session")
+@pytest_asyncio.fixture
 async def bascule_declaration_context() -> dict:
     # Declaration part - done once per session
     compiled_contract_casm = load_contract(f"{LBTC_BASCULE}.compiled_contract_class")
@@ -74,7 +73,10 @@ async def bascule_test_context(bascule_declaration_context: dict) -> dict:
 
     contracts_by_role = {
         role: Contract(
-            address=contract.address, abi=abi, provider=account, cairo_version=cairo_version
+            address=contract.address,
+            abi=abi,
+            provider=account,
+            cairo_version=cairo_version,
         )
         for role, account in ROLES.items()
     }
@@ -82,5 +84,4 @@ async def bascule_test_context(bascule_declaration_context: dict) -> dict:
     return {
         "contract": contract,
         "contracts_by_role": contracts_by_role,
-        "roles": ROLES,
     }

@@ -13,6 +13,9 @@ import requests
 from starknet_py.contract import Contract
 import re
 from pathlib import Path
+import socket
+import errno
+import time
 
 
 from pathlib import Path
@@ -87,8 +90,10 @@ class StarknetTestUtils:
     Allows testing Starknet contracts.
     """
 
-    def __init__(self):
-        self.starknet = Starknet()
+    MAX_RETRIES = 5
+
+    def __init__(self, port: int):
+        self.starknet = Starknet(port=port)
         self.accounts = self.starknet.accounts
 
     def stop(self):
@@ -96,12 +101,28 @@ class StarknetTestUtils:
 
     @classmethod
     @contextlib.contextmanager
-    def context_manager(cls):
-        res = cls()
-        try:
-            yield res
-        finally:
-            res.stop()
+    def context_manager(cls, port: int | None = None, backoff: float = 0.1):
+        """
+        Retry creating a Starknet instance if port is already in use.
+        If port is None, will pick random free port.
+        """
+        for attempt in range(cls.MAX_RETRIES):
+            try:
+                actual_port = port or get_free_port()
+                res = cls(port=actual_port)
+                yield res
+                return
+            except OSError as e:
+                if e.errno in (errno.EADDRINUSE, errno.EACCES):  # port in use
+                    if attempt < cls.MAX_RETRIES - 1:
+                        time.sleep(backoff)  # short backoff
+                        continue
+                    raise
+            finally:
+                try:
+                    res.stop()
+                except Exception:
+                    pass
 
     def advance_time(self, n_seconds: int):
         payload = {
@@ -241,3 +262,9 @@ def get_cairo_int_constant(file_path: Path, constant_name: str) -> int:
 
     raw = match.group("val").replace("_", "")
     return int(raw, 16 if raw.startswith("0x") else 10)
+
+
+def get_free_port():
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("", 0))
+        return s.getsockname()[1]

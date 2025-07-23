@@ -421,3 +421,60 @@ fn test_check_proof_invalid_scenarios() {
         .unwrap();
 }
 
+#[test]
+#[feature("safe_dispatcher")]
+fn test_consortium_flow() {
+    // Setup:
+    let contract_address = init_contract_with_roles();
+    let dispatcher = IConsortiumSafeDispatcher { contract_address };
+
+    // Params:
+    let msg_hash = 0x8917d1b016548996625c37d4ac902ccc5951f248ab8466a640a98fa7864de548;
+    let proof_hash = 0x4d42ccfdec0c4f7c3d0e1f019c8b33a16db59349d8b8ebacd07c6c5c9105a1b6;
+
+    let secret_key_1 = 0x21a30c0bdaa3b425e17a062bfdf5b8ecaed4e2d3ab4b30b0774472d4621081d9_u256;
+    let secret_key_2 = 0x21a30c0bdaa3b425e17a062bfdf5b8ecaed4e2d3ab4b30b0774472d4621081d8_u256;
+
+    let (public_key_1, key_pair_1) = generate_public_key(secret_key: secret_key_1);
+    let (public_key_2, key_pair_2) = generate_public_key(secret_key: secret_key_2);
+
+    let signature_1 = key_pair_1.sign(msg_hash).unwrap();
+    let signature_2 = key_pair_2.sign(msg_hash).unwrap();
+    let signed_proof = key_pair_1.sign(proof_hash).unwrap();
+
+    cheat_caller_address_once(:contract_address, caller_address: APP_GOVERNOR);
+    dispatcher
+        .set_initial_validator_set(
+            epoch: 1,
+            public_keys: array![public_key_1].span(),
+            weights: array![10].span(),
+            threshold_weight: 10,
+        )
+        .unwrap();
+
+    // Test:
+
+    // Check proof with both signatures.
+    dispatcher.check_proof(:msg_hash, proof: array![signature_1].span()).unwrap();
+
+    let result = dispatcher.check_proof(:msg_hash, proof: array![signature_2].span());
+    assert_panic_with_felt_error(:result, expected_error: NOT_ENOUGH_SIGNATURES);
+
+    dispatcher
+        .set_next_validator_set(
+            epoch: 2,
+            public_keys: array![public_key_2].span(),
+            weights: array![1].span(),
+            threshold_weight: 1,
+            height: 1234321,
+            proof: array![signed_proof].span(),
+        )
+        .unwrap();
+
+    // Check proof with both signatures.
+    let result = dispatcher.check_proof(:msg_hash, proof: array![signature_1].span());
+    assert_panic_with_felt_error(:result, expected_error: NOT_ENOUGH_SIGNATURES);
+
+    dispatcher.check_proof(:msg_hash, proof: array![signature_2].span()).unwrap();
+}
+

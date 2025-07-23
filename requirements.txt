@@ -5,3 +5,4 @@ asyncio
 starknet-py==0.26.0rc1
 requests
 pathlib
+pytest-xdist

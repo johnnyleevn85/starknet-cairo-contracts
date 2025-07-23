@@ -31,11 +31,7 @@ fn test_update_validation_threshold() {
     let bascule = IBasculeDispatcher { contract_address: bascule_address };
     let new_threshold = bascule.get_validation_threshold() + 10;
 
-    let validation_guardian = 'VALIDATION_GUARDIAN'.try_into().unwrap();
     cheat_caller_address_once(bascule_address, testing_constants::GOVERNANCE_ADMIN);
-    bascule.register_validation_guardian(validation_guardian);
-
-    cheat_caller_address_once(bascule_address, validation_guardian);
     bascule.update_validation_threshold(new_threshold);
 
     let updated_threshold = bascule.get_validation_threshold();
@@ -51,52 +47,36 @@ fn test_update_validation_threshold() {
 }
 
 #[test]
-fn test_double_update_validation_threshold_with_registered_validation_guardian() {
-    let bascule_address = init_bascule();
-    let bascule = IBasculeDispatcher { contract_address: bascule_address };
-    let new_threshold = bascule.get_validation_threshold() + 10;
-
-    let validation_guardian = 'VALIDATION_GUARDIAN'.try_into().unwrap();
-    cheat_caller_address_once(bascule_address, testing_constants::GOVERNANCE_ADMIN);
-    bascule.register_validation_guardian(validation_guardian);
-
-    cheat_caller_address_once(bascule_address, validation_guardian);
-    bascule.update_validation_threshold(new_threshold);
-
-    let updated_threshold = bascule.get_validation_threshold();
-    assert_eq!(updated_threshold, new_threshold);
-
-    cheat_caller_address_once(bascule_address, testing_constants::GOVERNANCE_ADMIN);
-    bascule.register_validation_guardian(validation_guardian);
-
-    let new_threshold = bascule.get_validation_threshold() + 10;
-
-    cheat_caller_address_once(bascule_address, validation_guardian);
-    bascule.update_validation_threshold(new_threshold);
-
-    let updated_threshold = bascule.get_validation_threshold();
-    assert_eq!(updated_threshold, new_threshold);
-}
-#[test]
-#[should_panic(expected: 'Caller is missing role')]
 fn test_double_update_validation_threshold() {
     let bascule_address = init_bascule();
     let bascule = IBasculeDispatcher { contract_address: bascule_address };
     let new_threshold = bascule.get_validation_threshold() + 10;
 
-    let validation_guardian = 'VALIDATION_GUARDIAN'.try_into().unwrap();
     cheat_caller_address_once(bascule_address, testing_constants::GOVERNANCE_ADMIN);
-    bascule.register_validation_guardian(validation_guardian);
-
-    cheat_caller_address_once(bascule_address, validation_guardian);
     bascule.update_validation_threshold(new_threshold);
 
     let updated_threshold = bascule.get_validation_threshold();
     assert_eq!(updated_threshold, new_threshold);
 
-    cheat_caller_address_once(bascule_address, validation_guardian);
-    bascule.update_validation_threshold(new_threshold + 10);
+    let new_threshold = bascule.get_validation_threshold() + 10;
+
+    cheat_caller_address_once(bascule_address, testing_constants::GOVERNANCE_ADMIN);
+    bascule.update_validation_threshold(new_threshold);
+
+    let updated_threshold = bascule.get_validation_threshold();
+    assert_eq!(updated_threshold, new_threshold);
 }
+
+#[test]
+#[should_panic(expected: 'Caller is missing role')]
+fn test_update_validation_threshold_with_invalid_role() {
+    let bascule_address = init_bascule();
+    let bascule = IBasculeDispatcher { contract_address: bascule_address };
+    let new_threshold = bascule.get_validation_threshold() + 10;
+
+    bascule.update_validation_threshold(new_threshold);
+}
+
 
 #[test]
 fn test_set_max_deposits() {
@@ -184,11 +164,7 @@ fn test_validate_double_withdrawal() {
 
     let new_threshold = bascule.get_validation_threshold() + 2 * constants::WITHDRAWAL_AMOUNT;
 
-    let validation_guardian = 'VALIDATION_GUARDIAN'.try_into().unwrap();
     cheat_caller_address_once(bascule_address, testing_constants::GOVERNANCE_ADMIN);
-    bascule.register_validation_guardian(validation_guardian);
-
-    cheat_caller_address_once(bascule_address, validation_guardian);
     bascule.update_validation_threshold(new_threshold);
 
     cheat_caller_address_once(bascule_address, constants::WITHDRAWAL_VALIDATOR);
@@ -237,11 +213,7 @@ fn test_successful_validate_withdrawal_not_reported() {
     let bascule = IBasculeDispatcher { contract_address: bascule_address };
     let new_threshold = bascule.get_validation_threshold() + 2 * constants::WITHDRAWAL_AMOUNT;
 
-    let validation_guardian = 'VALIDATION_GUARDIAN'.try_into().unwrap();
     cheat_caller_address_once(bascule_address, testing_constants::GOVERNANCE_ADMIN);
-    bascule.register_validation_guardian(validation_guardian);
-
-    cheat_caller_address_once(bascule_address, validation_guardian);
     bascule.update_validation_threshold(new_threshold);
 
     let mut spy = spy_events();
@@ -350,27 +322,6 @@ fn test_register_and_remove_withdrawal_validator() {
     let new_withdrawal_validator_registered = bascule
         .is_withdrawal_validator(new_withdrawal_validator);
     assert_eq!(new_withdrawal_validator_registered, false);
-}
-
-#[test]
-fn test_register_and_remove_validation_guardian() {
-    let bascule_address = init_bascule();
-    let bascule = IBasculeDispatcher { contract_address: bascule_address };
-
-    let new_validation_guardian = 'NEW_VALIDATION_GUARDIAN'.try_into().unwrap();
-    cheat_caller_address_once(bascule_address, testing_constants::GOVERNANCE_ADMIN);
-    bascule.register_validation_guardian(new_validation_guardian);
-
-    let new_validation_guardian_registered = bascule
-        .is_validation_guardian(new_validation_guardian);
-    assert_eq!(new_validation_guardian_registered, true);
-
-    cheat_caller_address_once(bascule_address, testing_constants::GOVERNANCE_ADMIN);
-    bascule.remove_validation_guardian(new_validation_guardian);
-
-    let new_validation_guardian_registered = bascule
-        .is_validation_guardian(new_validation_guardian);
-    assert_eq!(new_validation_guardian_registered, false);
 }
 
 #[test]

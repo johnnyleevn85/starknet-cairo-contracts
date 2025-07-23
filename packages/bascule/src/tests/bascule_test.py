@@ -37,27 +37,15 @@ async def test_set_max_deposits(bascule_test_context: dict):
 
 @pytest.mark.asyncio
 async def test_get_and_update_validation_threshold(bascule_test_context: dict):
-    roles = bascule_test_context["roles"]
     governance_admin = bascule_test_context["contracts_by_role"]["governance_admin"]
-    validation_guardian = bascule_test_context["contracts_by_role"]["validation_guardian"]
     user = bascule_test_context["contracts_by_role"]["user"]
 
     # Check default threshold (should be 0)
     (threshold,) = await user.functions["get_validation_threshold"].call()
     assert threshold == 0
 
-    # Register the validation guardian
-    invocation = await governance_admin.functions["register_validation_guardian"].invoke_v3(
-        roles["validation_guardian"].address, auto_estimate=True
-    )
-    await invocation.wait_for_acceptance(check_interval=0.1)
-    (is_registered,) = await validation_guardian.functions["is_validation_guardian"].call(
-        roles["validation_guardian"].address
-    )
-    assert is_registered == True
-
     # Update the threshold
-    invocation = await validation_guardian.functions["update_validation_threshold"].invoke_v3(
+    invocation = await governance_admin.functions["update_validation_threshold"].invoke_v3(
         100, auto_estimate=True
     )
     await invocation.wait_for_acceptance(check_interval=0.1)

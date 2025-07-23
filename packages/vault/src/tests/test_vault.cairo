@@ -362,7 +362,9 @@ fn test_vault_redeem() {
     cheat_caller_address_once(contract_address: vault_address, caller_address: user);
     vault_erc4626.deposit(assets: deposit_amount, receiver: user);
 
-    // Partial redeem phase:
+    // ###############################################################
+
+    // Testing user redeem partial shares.
 
     let partial_redeem_amount = 50_000_000_000;
     let partial_redeem_fee = 1_000_000_000;
@@ -372,9 +374,9 @@ fn test_vault_redeem() {
 
     // Test:
     cheat_caller_address_once(contract_address: vault_address, caller_address: user);
-    let redeem_result = vault_erc4626
+    let partial_redeem_result = vault_erc4626
         .redeem(shares: partial_redeem_amount, receiver: user, owner: user);
-    assert_eq!(redeem_result, partial_redeem_amount_in_assets - partial_redeem_fee_assets);
+    assert_eq!(partial_redeem_result, partial_redeem_amount_in_assets - partial_redeem_fee_assets);
 
     // Checks:
     assert_eq!(
@@ -407,18 +409,21 @@ fn test_vault_redeem() {
         deposit_total_shares - (partial_redeem_amount - partial_redeem_fee),
     );
 
-    // Complete redeem phase:
+    // ###############################################################
+
+    // Testing user redeem all shares.
 
     let full_redeem_amount = 46_000_000_000;
     let full_redeem_fee = 920_000_000;
     let full_redeem_amount_in_assets = 46;
     let full_redeem_fee_assets = 1;
+    let full_shares_lost_by_rounding = 80_000_000;
 
     // Test:
     cheat_caller_address_once(contract_address: vault_address, caller_address: user);
-    let redeem_result = vault_erc4626
+    let full_redeem_result = vault_erc4626
         .redeem(shares: full_redeem_amount, receiver: user, owner: user);
-    assert_eq!(redeem_result, full_redeem_amount_in_assets - full_redeem_fee_assets);
+    assert_eq!(full_redeem_result, full_redeem_amount_in_assets - full_redeem_fee_assets);
 
     // Checks:
     assert_eq!(
@@ -448,7 +453,7 @@ fn test_vault_redeem() {
         deposit_total_shares
             - (partial_redeem_amount - partial_redeem_fee)
             - (full_redeem_amount - full_redeem_fee)
-            + 80_000_000,
+            + full_shares_lost_by_rounding,
     );
 
     assert_eq!(
@@ -462,6 +467,60 @@ fn test_vault_redeem() {
         deposit_total_shares
             - (partial_redeem_amount - partial_redeem_fee)
             - (full_redeem_amount - full_redeem_fee),
+    );
+
+    // ###############################################################
+
+    // Testing fee recipient redeem action.
+
+    // fee_amount = 5_920_000_000.
+    let fee_amount = deposit_fee_shares + partial_redeem_fee + full_redeem_fee;
+    let fee_amount_in_assets = 5;
+    let fee_shares_lost_by_rounding = 920_000_000;
+
+    // Test:
+    cheat_caller_address_once(contract_address: vault_address, caller_address: fee_recipient);
+    let fee_redeem_result = vault_erc4626
+        .redeem(shares: fee_amount, receiver: fee_recipient, owner: fee_recipient);
+    assert_eq!(fee_redeem_result, fee_amount_in_assets);
+
+    // Checks:
+    assert_eq!(
+        lbtc_erc20.balance_of(account: multi_sig),
+        deposit_amount
+            - (partial_redeem_amount_in_assets - partial_redeem_fee_assets)
+            - (full_redeem_amount_in_assets - full_redeem_fee_assets)
+            - fee_amount_in_assets,
+    );
+    assert_eq!(lbtc_erc20.balance_of(account: vault_address), 0);
+    assert_eq!(lbtc_erc20.balance_of(account: fee_recipient), fee_amount_in_assets);
+
+    assert_eq!(vault_erc20.balance_of(account: vault_address), 0);
+    assert_eq!(vault_erc20.balance_of(account: fee_recipient), 0);
+
+    assert_eq!(
+        strategy_erc20.balance_of(account: vault_address),
+        deposit_total_shares
+            - (partial_redeem_amount - partial_redeem_fee)
+            - (full_redeem_amount - full_redeem_fee)
+            + full_shares_lost_by_rounding
+            - fee_amount
+            + fee_shares_lost_by_rounding,
+    );
+
+    assert_eq!(
+        vault_erc4626.total_assets(),
+        deposit_amount
+            - (partial_redeem_amount_in_assets - partial_redeem_fee_assets)
+            - (full_redeem_amount_in_assets - full_redeem_fee_assets)
+            - fee_amount_in_assets,
+    );
+    assert_eq!(
+        vault_erc20.total_supply(),
+        deposit_total_shares
+            - (partial_redeem_amount - partial_redeem_fee)
+            - (full_redeem_amount - full_redeem_fee)
+            - fee_amount,
     );
 }
 fn test_vault_deposit_withdraw_fee() {
