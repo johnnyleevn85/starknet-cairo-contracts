@@ -10,7 +10,7 @@
       "consortium": "0x0579911f0c65ccd558a6c47ca59058d7f719061228d6c4c726a6232a5cb8240b",
       "lbtc": "0x00456a829ab75ba5e97534dc70d7fc617cfda244f8dcda47b11624de67c6e70c",
       "asset_router": "0x063b7b5c8b114ebd5b9602fbd5d0ffd2cc3a598f1d91c6904cc0997cd8fea760",
-      "bascule": "0x01757fb630a6cc4e3607fc1d92e0f91c5b3eedd71420f1fa7dc6d1764827b012"
+      "bascule": "0x001d16d02a4ed6f5673635b1ad3b27ead190904b83fafde7b4c55282ef57492a"
     },
     "chainlink": {
       "ChainSelector": "",

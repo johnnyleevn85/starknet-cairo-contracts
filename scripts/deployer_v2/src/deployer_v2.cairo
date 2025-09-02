@@ -84,7 +84,8 @@ fn main() {
     bascule_calldata.append_serde(GOVERNANCE_ADMIN); // Reporter
     bascule_calldata.append_serde(GOVERNANCE_ADMIN); // Withdrawal validator
     bascule_calldata.append_serde(MAX_DEPOSITS); // Max deposits
-    let bascule_address = deploy_contract("bascule", bascule_calldata, true, Some(BASCULE_CLASSS_HASH));
+    // let bascule_address = deploy_contract("bascule", bascule_calldata, true, Some(BASCULE_CLASSS_HASH));
+    let bascule_address = deploy_contract("bascule", bascule_calldata, false, Some(BASCULE_CLASSS_HASH));
     // let bascule_address = deploy_contract("bascule", bascule_calldata, false, Some(BASCULE_CLASSS_HASH));
 
     // Deploy consortium
