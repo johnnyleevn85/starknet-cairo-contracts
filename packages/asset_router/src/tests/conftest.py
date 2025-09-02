@@ -2,7 +2,10 @@ from starknet_py.proxy.contract_abi_resolver import ContractAbiResolver, ProxyCo
 
 import pytest_asyncio
 from starknet_py.contract import Contract
-from starknet_test_util import StarknetTestUtils, load_contract, grant_roles
+from test_utils.starknet_test_utils import StarknetTestUtils, load_contract, grant_roles
+import os
+from pathlib import Path
+from scripts.script_utils import get_project_root
 
 LBTC_ASSET_ROUTER = "lbtc_asset_router_asset_router"
 ROLE_NAMES = [
@@ -22,8 +25,14 @@ ROLE_NAMES = [
 async def asset_router_test_context(starknet_test_utils: StarknetTestUtils) -> dict:
     roles = {name: starknet_test_utils.accounts[i] for i, name in enumerate(ROLE_NAMES)}
 
-    compiled_contract_casm = load_contract(f"{LBTC_ASSET_ROUTER}.compiled_contract_class")
-    compiled_contract = load_contract(f"{LBTC_ASSET_ROUTER}.contract_class")
+    compiled_contract_casm = load_contract(
+        contract_name=f"{LBTC_ASSET_ROUTER}.compiled_contract_class",
+        base_path=Path(os.path.join(get_project_root(), "target", "dev")),
+    )
+    compiled_contract = load_contract(
+        contract_name=f"{LBTC_ASSET_ROUTER}.contract_class",
+        base_path=Path(os.path.join(get_project_root(), "target", "dev")),
+    )
     declare_result = await Contract.declare_v3(
         account=roles["governance_admin"],
         compiled_contract=compiled_contract,
