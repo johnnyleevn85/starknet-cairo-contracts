@@ -18,10 +18,14 @@ pub const UPGRADE_DELAY: u64 = 0;
 pub const MAX_DEPOSITS: u64 = 100;
 pub const BURN_COMMISSION: u64 = 1000;
 
-pub const BASCULE_CLASSS_HASH: felt252 = 0x83965992f591e5979068d8a12a09a1f13949e1d1f65f495e7a5503d2f1e519;
-pub const CONSORTIUM_CLASSS_HASH: felt252 = 0xa6410783177211d658ad025479b4392bb1076d9387b9fab630c9432550d445;
-pub const LBTC_CLASSS_HASH: felt252 = 0x7825833d4a2c39c770284dc4d9ae7235d2129a0e9c06f6c3d945b31633c135d;
-pub const BRIDGE_CLASSS_HASH: felt252 = 0x45dbeac301d4d2ee1668f0046c3cd14b2ce0c9a82449ede1ee60b6f42c9d4e1;
+pub const BASCULE_CLASSS_HASH: felt252 = 0x0083965992f591e5979068d8a12a09a1f13949e1d1f65f495e7a5503d2f1e519;
+pub const CONSORTIUM_CLASSS_HASH: felt252 = 0x044b10fa28a3101397fb9e40c4a1e7e431997b30e73a19ebd3174e04d0035a9a;
+pub const LBTC_CLASSS_HASH: felt252 = 0x01f12942315b6dd05a21392ced7890a380affa81066741de6ac31af4dcb0d468;
+pub const ASSET_ROUTER_CLASSS_HASH: felt252 = 0x0524d80f999f690bbb302f37a36abdf82ea2135391c3d1a5090e7665c20e2159;
+
+// pub const bascule_address: ContractAddress = 0x01757fb630a6cc4e3607fc1d92e0f91c5b3eedd71420f1fa7dc6d1764827b012.try_into().unwrap();
+// pub const consortium_address: ContractAddress = 0x0579911f0c65ccd558a6c47ca59058d7f719061228d6c4c726a6232a5cb8240b.try_into().unwrap();
+// pub const lbtc_address: ContractAddress = 0x00456a829ab75ba5e97534dc70d7fc617cfda244f8dcda47b11624de67c6e70c.try_into().unwrap();
 
 fn deploy_contract(name: ByteArray, calldata: Array<felt252>, unique: bool, known_class_hash: Option<felt252>) -> ContractAddress {
     let mut name1 = name.clone();
@@ -93,25 +97,26 @@ fn main() {
     let mut lbtc_calldata = array![];
     lbtc_calldata.append_serde(GOVERNANCE_ADMIN); // Governance admin
     lbtc_calldata.append_serde(UPGRADE_DELAY); // Upgrade delay
-    let _lbtc_address = deploy_contract("lbtc", lbtc_calldata, true, Some(LBTC_CLASSS_HASH));
+    let lbtc_address = deploy_contract("lbtc", lbtc_calldata, true, Some(LBTC_CLASSS_HASH));
 
-    // Deploy bridge
-    let mut bridge_calldata = array![];
-    bridge_calldata.append_serde(GOVERNANCE_ADMIN); // Governance admin
-    bridge_calldata.append_serde(UPGRADE_DELAY); // Upgrade delay
-    bridge_calldata.append_serde(bascule_address); // Bascule
-    bridge_calldata.append_serde(consortium_address); // Consortium
-    bridge_calldata.append_serde(TREASURY_1); // Treasury
-    bridge_calldata.append_serde(BURN_COMMISSION); // Burn commission
-    let _bridge_address = deploy_contract("bridge", bridge_calldata, true, Some(BRIDGE_CLASSS_HASH));
+    // Deploy asset router
+    let mut asset_router_calldata = array![];
+    asset_router_calldata.append_serde(GOVERNANCE_ADMIN); // Governance admin
+    asset_router_calldata.append_serde(UPGRADE_DELAY); // Upgrade delay
+    asset_router_calldata.append_serde(bascule_address); // Bascule
+    asset_router_calldata.append_serde(consortium_address); // Consortium
+    asset_router_calldata.append_serde(lbtc_address); // Consortium
+    asset_router_calldata.append_serde(TREASURY_1); // Treasury
+    asset_router_calldata.append_serde(BURN_COMMISSION); // Burn commission
+    let _bridge_address = deploy_contract("asset_router", asset_router_calldata, true, Some(ASSET_ROUTER_CLASSS_HASH));
 
     // // Set LBTC token on the bridge - but this should be done by governance admin (multisig)
-    let invoke_nonce = get_nonce('pending');
-    let mut invoke_calldata = array![];
-    invoke_calldata.append_serde(lbtc_address); // New treasury
-    let invoke_result = invoke(bridge_address, selector!("initialize"), invoke_calldata, FeeSettingsTrait::estimate(), Option::Some(invoke_nonce),)
-        .expect('map invoke failed');
-    assert(invoke_result.transaction_hash != 0, invoke_result.transaction_hash);
+    // let invoke_nonce = get_nonce('pending');
+    // let mut invoke_calldata = array![];
+    // invoke_calldata.append_serde(_lbtc_address); // New treasury
+    // let invoke_result = invoke(bridge_address, selector!("initialize"), invoke_calldata, FeeSettingsTrait::estimate(), Option::Some(invoke_nonce),)
+    //     .expect('map invoke failed');
+    // assert(invoke_result.transaction_hash != 0, invoke_result.transaction_hash);
 
     // ToDO:
     // 0. bascule: add app admin role to governance admin
