@@ -87,7 +87,6 @@ fn main() {
     let bascule_address = deploy_contract("bascule", bascule_calldata, true, None);
     // let bascule_address = deploy_contract("bascule", bascule_calldata, true, Some(BASCULE_CLASSS_HASH));
     // let bascule_address = deploy_contract("bascule", bascule_calldata, false, Some(BASCULE_CLASSS_HASH));
-    return;
 
     // Deploy consortium
     let mut consortium_calldata = array![];
