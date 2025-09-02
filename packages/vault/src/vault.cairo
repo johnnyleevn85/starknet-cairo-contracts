@@ -665,11 +665,12 @@ pub mod vault {
                 return;
             }
 
-            let total_fee = self.accrued_protocol_fee() + self.accrued_performance_fee();
+            let total_fee_in_assets = self.accrued_protocol_fee() + self.accrued_performance_fee();
             let asset_per_share_unit = self
                 .erc4626
                 ._convert_to_assets(shares: SHARE_UNIT_BASIS, rounding: Rounding::Floor);
             let total_assets = self.erc4626.total_assets();
+            assert(total_fee_in_assets < total_assets, INVALID_FEE_AMOUNT);
 
             // Update high water mark if current per-share asset value exceeds the previous.
             let high_water_mark = self.high_water_mark.read();
@@ -677,18 +678,14 @@ pub mod vault {
                 self.high_water_mark.write(asset_per_share_unit);
             }
 
-            if total_fee.is_non_zero() && total_assets.is_non_zero() {
+            if total_fee_in_assets.is_non_zero() && total_assets.is_non_zero() {
                 let supply = self.erc20.total_supply();
-                let fee_in_shares = if supply.is_zero() {
-                    total_fee
-                } else {
-                    u256_mul_div(
-                        x: total_fee,
-                        y: supply,
-                        denominator: total_assets - total_fee,
-                        rounding: Rounding::Floor,
-                    )
-                };
+                let fee_in_shares = u256_mul_div(
+                    x: total_fee_in_assets,
+                    y: supply + 10_u256.pow(Immutable::DECIMALS_OFFSET.into()),
+                    denominator: total_assets - total_fee_in_assets,
+                    rounding: Rounding::Floor,
+                );
 
                 // Take fees by diluting the users.
                 self.erc20.mint(recipient: self.fee_recipient.read(), amount: fee_in_shares);

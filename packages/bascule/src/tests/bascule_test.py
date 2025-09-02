@@ -1,5 +1,5 @@
 import pytest
-from starknet_test_util import get_cairo_int_constant
+from test_utils.starknet_test_utils import get_cairo_int_constant
 from pathlib import Path
 
 
