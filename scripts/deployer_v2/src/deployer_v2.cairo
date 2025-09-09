@@ -7,23 +7,24 @@ use starknet::ContractAddress;
 // Some example:
 // https://foundry-rs.github.io/starknet-foundry/starknet/script.html#full-example-with-contract-deployment
 
-pub const MULTISIG_ACCOUNT: ContractAddress = 0x001aFebfe9bd3cA1E3315E1B53D92040230c2361AE6848c3046A4eB13C5bfF26.try_into().unwrap();
-pub const TREASURY_1: ContractAddress = 0x009D9aA1ef7e08519bB9DdeE4E749cFf4F9f8B8F46143C2071E3DAbf3B3Dcf8c.try_into().unwrap();
-pub const TREASURY_2: ContractAddress = 0x02551b1f37dAD720a72ABeFc954428a045715817d21642dc12DD92605dA9E63a.try_into().unwrap();
+// pub const MULTISIG_ACCOUNT: ContractAddress = 0x001aFebfe9bd3cA1E3315E1B53D92040230c2361AE6848c3046A4eB13C5bfF26.try_into().unwrap(); // Testnet
+pub const MULTISIG_ACCOUNT: ContractAddress = 0x01cbee71E622d9c16E1923CeF70Ab071cc8E9B74C7802d01632960b7bC7134bE.try_into().unwrap(); // Mainnet
+// pub const TREASURY_1: ContractAddress = 0x009D9aA1ef7e08519bB9DdeE4E749cFf4F9f8B8F46143C2071E3DAbf3B3Dcf8c.try_into().unwrap(); // Testnet
+pub const TREASURY_1: ContractAddress = 0x01cbee71E622d9c16E1923CeF70Ab071cc8E9B74C7802d01632960b7bC7134bE.try_into().unwrap(); // Mainnet
+// pub const TREASURY_2: ContractAddress = 0x02551b1f37dAD720a72ABeFc954428a045715817d21642dc12DD92605dA9E63a.try_into().unwrap();
 
 // pub const GOVERNANCE_ADMIN: ContractAddress = 0x18fb2fcd0f285174a0aa6dc2f8b6bd3b5020ead1f90ed29e45a0e5d874121a9.try_into().unwrap();
 pub const GOVERNANCE_ADMIN: ContractAddress = MULTISIG_ACCOUNT;
-pub const PERMITTED_MINTER: ContractAddress = 0x18fb2fcd0f285174a0aa6dc2f8b6bd3b5020ead1f90ed29e45a0e5d874121a9.try_into().unwrap();
 pub const UPGRADE_DELAY: u64 = 0;
 pub const MAX_DEPOSITS: u64 = 100;
-pub const BURN_COMMISSION: u64 = 1000;
+pub const BURN_COMMISSION: u64 = 10000;
 
 pub const BASCULE_CLASSS_HASH: felt252 = 0x0083965992f591e5979068d8a12a09a1f13949e1d1f65f495e7a5503d2f1e519;
 pub const CONSORTIUM_CLASSS_HASH: felt252 = 0x044b10fa28a3101397fb9e40c4a1e7e431997b30e73a19ebd3174e04d0035a9a;
 pub const LBTC_CLASSS_HASH: felt252 = 0x01f12942315b6dd05a21392ced7890a380affa81066741de6ac31af4dcb0d468;
 pub const ASSET_ROUTER_CLASSS_HASH: felt252 = 0x0524d80f999f690bbb302f37a36abdf82ea2135391c3d1a5090e7665c20e2159;
 
-// pub const bascule_address: ContractAddress = 0x01757fb630a6cc4e3607fc1d92e0f91c5b3eedd71420f1fa7dc6d1764827b012.try_into().unwrap();
+pub const bascule_address: ContractAddress = 0x0.try_into().unwrap();
 // pub const consortium_address: ContractAddress = 0x0579911f0c65ccd558a6c47ca59058d7f719061228d6c4c726a6232a5cb8240b.try_into().unwrap();
 // pub const lbtc_address: ContractAddress = 0x00456a829ab75ba5e97534dc70d7fc617cfda244f8dcda47b11624de67c6e70c.try_into().unwrap();
 
@@ -78,13 +79,13 @@ fn main() {
     // let salt = 0x3;
 
     // Deploy bascule
-    let mut bascule_calldata = array![];
-    bascule_calldata.append_serde(GOVERNANCE_ADMIN); // Governance admin
-    bascule_calldata.append_serde(GOVERNANCE_ADMIN); // Pauser
-    bascule_calldata.append_serde(GOVERNANCE_ADMIN); // Reporter
-    bascule_calldata.append_serde(GOVERNANCE_ADMIN); // Withdrawal validator
-    bascule_calldata.append_serde(MAX_DEPOSITS); // Max deposits
-    let bascule_address = deploy_contract("bascule", bascule_calldata, true, None);
+    // let mut bascule_calldata = array![];
+    // bascule_calldata.append_serde(GOVERNANCE_ADMIN); // Governance admin
+    // bascule_calldata.append_serde(GOVERNANCE_ADMIN); // Pauser
+    // bascule_calldata.append_serde(GOVERNANCE_ADMIN); // Reporter
+    // bascule_calldata.append_serde(GOVERNANCE_ADMIN); // Withdrawal validator
+    // bascule_calldata.append_serde(MAX_DEPOSITS); // Max deposits
+    // let bascule_address = deploy_contract("bascule", bascule_calldata, true, None);
     // let bascule_address = deploy_contract("bascule", bascule_calldata, true, Some(BASCULE_CLASSS_HASH));
     // let bascule_address = deploy_contract("bascule", bascule_calldata, false, Some(BASCULE_CLASSS_HASH));
 
@@ -92,13 +93,15 @@ fn main() {
     let mut consortium_calldata = array![];
     consortium_calldata.append_serde(GOVERNANCE_ADMIN); // Governance admin
     consortium_calldata.append_serde(UPGRADE_DELAY); // Upgrade delay
-    let consortium_address = deploy_contract("consortium", consortium_calldata, true, Some(CONSORTIUM_CLASSS_HASH));
+    // let consortium_address = deploy_contract("consortium", consortium_calldata, true, Some(CONSORTIUM_CLASSS_HASH));
+    let consortium_address = deploy_contract("consortium", consortium_calldata, true, None);
 
     // Deploy lbtc
     let mut lbtc_calldata = array![];
     lbtc_calldata.append_serde(GOVERNANCE_ADMIN); // Governance admin
     lbtc_calldata.append_serde(UPGRADE_DELAY); // Upgrade delay
-    let lbtc_address = deploy_contract("lbtc", lbtc_calldata, true, Some(LBTC_CLASSS_HASH));
+    // let lbtc_address = deploy_contract("lbtc", lbtc_calldata, true, Some(LBTC_CLASSS_HASH));
+    let lbtc_address = deploy_contract("lbtc", lbtc_calldata, true, None);
 
     // Deploy asset router
     let mut asset_router_calldata = array![];
@@ -109,7 +112,8 @@ fn main() {
     asset_router_calldata.append_serde(lbtc_address); // Consortium
     asset_router_calldata.append_serde(TREASURY_1); // Treasury
     asset_router_calldata.append_serde(BURN_COMMISSION); // Burn commission
-    let _bridge_address = deploy_contract("asset_router", asset_router_calldata, true, Some(ASSET_ROUTER_CLASSS_HASH));
+    // let _bridge_address = deploy_contract("asset_router", asset_router_calldata, true, Some(ASSET_ROUTER_CLASSS_HASH));
+    let _bridge_address = deploy_contract("asset_router", asset_router_calldata, true, None);
 
     // // Set LBTC token on the bridge - but this should be done by governance admin (multisig)
     // let invoke_nonce = get_nonce('pending');
