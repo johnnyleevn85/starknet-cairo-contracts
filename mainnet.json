@@ -1,5 +1,5 @@
 {
-  "sepolia": {
+  "starknet-mainnet": {
     "chainId": "",
     "admin": {
       "Owner": "0x01cbee71E622d9c16E1923CeF70Ab071cc8E9B74C7802d01632960b7bC7134bE",
