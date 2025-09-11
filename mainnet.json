@@ -1,0 +1,23 @@
+{
+  "starknet-mainnet": {
+    "chainId": "",
+    "admin": {
+      "Owner": "0x01cbee71E622d9c16E1923CeF70Ab071cc8E9B74C7802d01632960b7bC7134bE",
+      "TimeLock": "",
+      "Deployer": ["0x06a0e8ac47a0b046c8184b4b0499d2821834c235350e62b648d2669421b124b8"]
+    },
+    "lombard": {
+      "consortium": "0x01a1d1983178fc0a4af35efafa9945e76aa71b5391261cd766a87310f2d19a81",
+      "lbtc": "0x036834a40984312f7f7de8d31e3f6305b325389eaeea5b1c0664b2fb936461a4",
+      "asset_router": "0x05b1886d0f844ab930fc0ee066f1655a873437f15a5d2c41ee3e884fd5299976",
+      "bascule": ""
+    },
+    "chainlink": {
+      "ChainSelector": "",
+      "Router": "",
+      "RMN": "",
+      "CLAdapter": "",
+      "LombardTokenPool": ""
+    }
+  }
+}
