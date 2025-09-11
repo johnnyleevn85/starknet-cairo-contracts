@@ -1,9 +1,16 @@
 How to deploy smart contract
 ============================
 
-0. Decide how to provide information about deployer account
+00. Decide how to provide information about deployer account
 
     Examples below presume that this information is available in snfoundry.toml placed into the project root directory. Name is 'new_account'.
+
+0. Install dependencies (see README.md for details)
+    It is critical to use particular version of 
+
+    ```bash
+    asdf install starknet-foundry 0.45.0
+    ```
 
 1. Manual deploy one by one (lbtc as an example)
 
