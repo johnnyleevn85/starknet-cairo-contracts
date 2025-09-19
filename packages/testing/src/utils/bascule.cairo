@@ -1,3 +1,4 @@
+use lbtc_bascule::utils::calculate_deposit_id;
 use openzeppelin::utils::serde::SerializedAppend;
 use openzeppelin_testing::deployment::declare_and_deploy;
 use starknet::ContractAddress;
@@ -44,6 +45,16 @@ pub fn init_bascule() -> ContractAddress {
     let cfg: BasculeInitConfig = Default::default();
     let bascule_address = deploy_bascule(:cfg);
     bascule_address
+}
+
+pub fn caluclate_and_print_deposit_id(
+    to_chain: u256, recipient: ContractAddress, withdrawal_amount: u256, tx_id: u256, vout: u32,
+) -> u256 {
+    let deposit_id = calculate_deposit_id(
+        :to_chain, :recipient, :withdrawal_amount, :tx_id, :vout,
+    );
+    println!("DepositId: 0x{:x}", deposit_id);
+    deposit_id
 }
 
 #[derive(Drop, Debug, Copy)]
