@@ -52,6 +52,10 @@ pub mod lbtc {
     impl SNIP12MetadataExternal =
         ERC20Component::SNIP12MetadataExternalImpl<ContractState>;
 
+    // Support for the legacy camel case selectors
+    #[abi(embed_v0)]
+    impl ERC20CamelOnlyImpl = ERC20Component::ERC20CamelOnlyImpl<ContractState>;
+
     // Internal
     impl ERC20InternalImpl = ERC20Component::InternalImpl<ContractState>;
 

@@ -397,13 +397,17 @@ fn test_validate_withdrawal_generated_deposit_id() {
     let bascule_address = init_bascule();
     let bascule = IBasculeDispatcher { contract_address: bascule_address };
 
+    let thresold = bascule.get_validation_threshold() ;
+
+    println!("Current validation threshold: {}", thresold);
+
     let report_id = 1001;
 
     cheat_caller_address_once(bascule_address, constants::DEPOSIT_REPORTER);
     
-    let TO_CHAIN: u256 = 0x1001;
+    let TO_CHAIN: u256 = 0x04000000000000000000000000000000000000000000000000534e5f4d41494e;
     let RECIPIENT: ContractAddress = 0xbe6afb3a18bbb8f35e2a12c330d0e37daebab802.try_into().unwrap();
-    let WITHDRAWAL_AMOUNT: u256 = 0xb061cf0;
+    let WITHDRAWAL_AMOUNT: u256 = 0xb061cf00;
     let TX_ID: u256 = 0x8b881e06005aff8dd8768600d785d9d0027b65896368dbf3bd6fbf13ae8fb9d1_u256;
     let VOUT: u32 = 0x0;
     // let deposit_id: u256 =
