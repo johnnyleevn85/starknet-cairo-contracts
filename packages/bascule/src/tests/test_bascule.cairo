@@ -6,6 +6,7 @@ use starkware_utils::components::pausable::interface::{
 };
 use starkware_utils_testing::constants as testing_constants;
 use starkware_utils_testing::test_utils::cheat_caller_address_once;
+use starknet::ContractAddress;
 
 #[test]
 fn test_bascule_constructor() {
@@ -389,4 +390,51 @@ fn test_pause_with_invalid_role() {
     let pausable = IPausableDispatcher { contract_address: bascule_address };
 
     pausable.pause();
+}
+
+#[test]
+fn test_validate_withdrawal_generated_deposit_id() {
+    let bascule_address = init_bascule();
+    let bascule = IBasculeDispatcher { contract_address: bascule_address };
+
+    let report_id = 1001;
+
+    cheat_caller_address_once(bascule_address, constants::DEPOSIT_REPORTER);
+    
+    let TO_CHAIN: u256 = 0x1001;
+    let RECIPIENT: ContractAddress = 0xbe6afb3a18bbb8f35e2a12c330d0e37daebab802.try_into().unwrap();
+    let WITHDRAWAL_AMOUNT: u256 = 0xb061cf0;
+    let TX_ID: u256 = 0x8b881e06005aff8dd8768600d785d9d0027b65896368dbf3bd6fbf13ae8fb9d1_u256;
+    let VOUT: u32 = 0x0;
+    // let deposit_id: u256 =
+    //     0xd0196c21127ebd186b28e7d84dddbfa51c82b1667757350581259d9b1a03d9b5_u256;
+
+    let deposit_id = caluclate_and_print_deposit_id(TO_CHAIN, RECIPIENT, WITHDRAWAL_AMOUNT, TX_ID, VOUT);
+
+    bascule.report_deposits(:report_id, deposit_ids: array![deposit_id].span());
+
+    let mut spy = spy_events();
+    cheat_caller_address_once(bascule_address, constants::WITHDRAWAL_VALIDATOR);
+    bascule
+        .validate_withdrawal(
+            to_chain: TO_CHAIN,
+            recipient: RECIPIENT,
+            withdrawal_amount: WITHDRAWAL_AMOUNT,
+            tx_id: TX_ID,
+            vout: VOUT,
+        );
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    bascule_address,
+                    lbtc_bascule::bascule::bascule::Event::WithdrawalValidated(
+                        lbtc_bascule::events::WithdrawalValidated {
+                            deposit_id: deposit_id,
+                            withdrawal_amount: WITHDRAWAL_AMOUNT,
+                        },
+                    ),
+                ),
+            ],
+        );
 }
