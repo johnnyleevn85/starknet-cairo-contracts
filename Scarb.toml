@@ -6,7 +6,6 @@ members = [
     "packages/asset_router",
     "packages/stake_and_bake",
     "packages/testing",
-    "scripts/deployer",
     "scripts/deployer_v2",
 ]
 

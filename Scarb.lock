@@ -2,17 +2,6 @@
 version = 1
 
 [[package]]
-name = "deployer"
-version = "0.1.0"
-dependencies = [
- "lbtc_token",
- "openzeppelin",
- "openzeppelin_testing",
- "sncast_std",
- "snforge_std",
-]
-
-[[package]]
 name = "deployer_v2"
 version = "0.1.0"
 dependencies = [
