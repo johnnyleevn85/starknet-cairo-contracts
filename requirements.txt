@@ -1,5 +1,5 @@
-black==23.1a1
-pytest==7.4.4
+black==26.10.1
+pytest==9.0.3
 pytest-asyncio
 asyncio
 starknet-py==0.26.0rc1
